@@ -1,48 +1,57 @@
-# SIAB DKPP (Sistem Informasi Analisis Berita - DKPP RI)
+# SIAB DKPP (Sistem Informasi Agregator Berita — DKPP RI)
 
-SIAB DKPP adalah aplikasi desktop berbasis **Electron** yang dirancang khusus untuk Dewan Kehormatan Penyelenggara Pemilu (DKPP) Republik Indonesia. Aplikasi ini berfungsi untuk melakukan pencarian (crawling) berita otomatis mengenai DKPP dari media online, mengekstrak teks bersih dari artikel berita, dan melakukan perangkuman berbasis AI (NLP) secara lokal di perangkat pengguna.
+SIAB DKPP adalah aplikasi desktop berbasis **Electron** yang dirancang khusus untuk Dewan Kehormatan Penyelenggara Pemilu (DKPP) Republik Indonesia. Aplikasi ini berfungsi untuk melakukan pencarian (*crawling*) berita otomatis mengenai DKPP dari media daring, mengekstrak teks bersih dari artikel berita, dan menghasilkan rangkuman secara algoritmik (*Extractive Summarization*) tanpa memerlukan koneksi ke layanan AI eksternal.
 
-Aplikasi ini berjalan sepenuhnya secara *client-side* untuk pemrosesan AI, sehingga menjaga privasi data, menekan biaya server, dan tidak memerlukan API key eksternal.
+Seluruh proses berjalan secara lokal di perangkat pengguna — tanpa API key, tanpa biaya server, dan tanpa pengiriman data ke pihak ketiga.
 
 ---
 
 ## 🌟 Fitur Utama
 
-- **Pencarian Berita Cerdas (News Crawling)**:
+- **Pencarian Berita Otomatis (News Crawling)**:
   - Otomatis mencari berita terkait dengan query bawaan: `"DKPP RI" OR "DEWAN KEHORMATAN PENYELENGGARA PEMILU"`.
-  - Mendukung penyaringan kata kunci tambahan (keyword) dan rentang waktu (tanggal awal & akhir).
-  - Mengambil daftar feed RSS resmi dari Google News.
-- **Ekstraksi Konten Artikel Tanpa Gangguan (Clean Extraction)**:
-  - Membuka tautan artikel berita di latar belakang menggunakan off-screen browser window untuk menyelesaikan pengalihan (JavaScript redirect).
-  - Menggunakan modul `@mozilla/readability` dan `jsdom` untuk menyaring dan mengekstrak teks utama artikel dengan bersih (menghapus iklan, menu navigasi, header, dan footer).
-- **Perangkuman AI Lokal (On-Device AI Summarization)**:
-  - Mengintegrasikan Hugging Face **Transformers.js** (`@xenova/transformers`) yang berjalan di thread terpisah (**Web Worker**) agar antarmuka aplikasi tetap responsif.
-  - Proses inferensi AI dilakukan 100% lokal pada komputer Anda tanpa mengirim teks artikel ke server pihak ketiga.
-  - Pilihan model AI fleksibel:
-    - `Xenova/distilbart-cnn-12-6` (Default - Cepat & Efisien)
-    - `Xenova/bart-large-cnn` (Akurasi Tinggi)
-    - `Xenova/indobert-base-uncased` (Fokus Bahasa Indonesia)
-  - Pengaturan panjang rangkuman yang dapat disesuaikan: Singkat (±2 Kalimat), Sedang (±1 Paragraf), atau Mendetail (Panjang).
-- **Ekspor Data Mudah (CSV Export)**:
-  - Mengunduh hasil pencarian dan analisis rangkuman langsung ke file CSV berformat UTF-8 (dengan dukungan BOM agar terbaca rapi di Microsoft Excel).
-  - Menyimpan informasi: Judul, Sumber Media, Link, Tanggal Publikasi, Status Ekstraksi, Teks Bersih Artikel, dan Rangkuman AI.
-- **Riwayat Analisis (History Logs)**:
-  - Menyimpan metadata hasil pencarian dan rangkuman AI secara lokal di browser (`localStorage`).
-  - Dilengkapi fitur tinjauan detail untuk setiap sesi pencarian terdahulu, penghapusan item tertentu, serta pembersihan cache riwayat secara menyeluruh.
+  - Mendukung penyaringan kata kunci tambahan dan rentang waktu (tanggal awal & akhir).
+  - Mengambil feed RSS resmi dari Google News Indonesia.
+- **Ekstraksi Konten Artikel (Clean Extraction)**:
+  - Membuka tautan berita di latar belakang menggunakan *off-screen browser window* untuk menyelesaikan pengalihan JavaScript (*redirect*).
+  - Menggunakan `@mozilla/readability` dan `jsdom` untuk menyaring serta mengekstrak teks utama artikel dengan bersih (menghapus iklan, navigasi, header, dan footer).
+- **Rangkuman Algoritmik (Extractive Summarization)**:
+  - Menggunakan algoritma *Term Frequency* dengan daftar 300+ *stopwords* Bahasa Indonesia.
+  - Secara otomatis memilih 2 kalimat paling representatif dari setiap artikel berdasarkan skor frekuensi kata kunci.
+  - Hasil rangkuman dibatasi maksimal **500 karakter** per artikel.
+  - Tidak memerlukan model AI, koneksi internet tambahan, atau GPU.
+- **Ekspor Data (CSV Export)**:
+  - Mengunduh hasil pencarian dan rangkuman ke file CSV berformat UTF-8 (dengan BOM agar terbaca rapi di Microsoft Excel).
+  - Menyimpan informasi: Judul, Sumber Media, Link, Tanggal Publikasi, Status Ekstraksi, Teks Bersih, dan Cuplikan Teks.
+- **Riwayat Pencarian Persisten**:
+  - Menyimpan riwayat pencarian dan cuplikan teks secara persisten menggunakan database berbasis file (Lowdb) di direktori `%APPDATA%`.
+  - Dilengkapi fitur tinjauan detail, penghapusan item, dan pembersihan seluruh riwayat.
+  - Batas riwayat tersimpan dapat dikonfigurasi (25 / 50 / 100 / 200 entri).
+- **Pengaturan Sistem yang Lengkap**:
+  - **Maks. Hasil Pencarian**: 10 / 25 / 50 / 100 artikel.
+  - **Batas Waktu per Artikel**: 15 / 25 / 40 / 60 detik.
+  - **Jeda antar Permintaan**: 500ms / 800ms / 1.5s / 3s (mencegah pemblokiran).
+  - **Tema Aplikasi**: Mode Terang / Mode Gelap.
+  - **Tentang Aplikasi**: Menampilkan versi, platform Electron, dan lokasi database.
 - **Antarmuka Modern & Responsif**:
-  - Tema Tampilan Fleksibel (Mode Terang/Light Mode dan Mode Gelap/Dark Mode).
-  - Animasi transisi yang halus, indikator kemajuan (progress bar) interaktif untuk penarikan RSS maupun proses pengunduhan model AI.
+  - Desain formal bertema DKPP RI (Navy & Gold).
+  - Konsol log *real-time* untuk memantau proses *crawling*.
+  - Animasi transisi yang halus dan *progress bar* interaktif.
 
 ---
 
 ## 🛠️ Teknologi yang Digunakan
 
-- **Core Framework**: Electron (Desktop Application)
-- **UI/UX**: HTML5, Vanilla CSS, Tailwind CSS (via CDN), Google Fonts (Inter)
-- **Logic**: Vanilla JavaScript (Main Process, Preload Script, Renderer Process)
-- **RSS Parser**: `rss-parser` (Mengurai feed RSS Google News)
-- **Article Parser**: `@mozilla/readability` & `jsdom` (Pembersih konten web)
-- **AI/NLP Engine**: `@xenova/transformers` (Inference AI lokal menggunakan ONNX Runtime)
+| Komponen | Teknologi |
+|---|---|
+| **Core Framework** | Electron (Desktop Application) |
+| **UI/UX** | HTML5, Tailwind CSS (CDN), Google Fonts (Inter) |
+| **Logic** | Vanilla JavaScript (Main Process, Preload, Renderer) |
+| **RSS Parser** | `rss-parser` (Google News RSS Feed) |
+| **Article Parser** | `@mozilla/readability` & `jsdom` |
+| **Summarization** | Extractive Summarization (Term Frequency Algorithm) |
+| **Database** | `lowdb` (File-based JSON, persisten) |
+| **HTTP Client** | `axios` |
 
 ---
 
@@ -51,13 +60,14 @@ Aplikasi ini berjalan sepenuhnya secara *client-side* untuk pemrosesan AI, sehin
 ```
 siab-dkpp/
 ├── public/
-│   └── logo_dkpp.png      # Logo Resmi DKPP RI
-├── index.html             # Struktur Antarmuka Utama (HTML & Styling)
-├── main.js                # Electron Main Process (Crawling & Browser Hidden Handler)
+│   ├── logo_dkpp.png      # Logo Resmi DKPP RI
+│   └── icon.ico           # Ikon Aplikasi
+├── index.html             # Antarmuka Utama (HTML & Styling)
+├── main.js                # Electron Main Process (Crawling, IPC Handlers)
 ├── preload.js             # Electron Preload (Jembatan Aman IPC)
-├── renderer.js            # Renderer Process (Logika UI, Ekspor CSV, & Riwayat)
-├── worker.js              # Web Worker (Inisialisasi & Inferensi Model AI lokal)
-├── package.json           # Dependensi Proyek & Script Perintah
+├── renderer.js            # Renderer Process (UI, Summarization, CSV, Riwayat)
+├── database.js            # Modul Database (Lowdb - Penyimpanan Persisten)
+├── package.json           # Dependensi & Script
 └── README.md              # Dokumentasi Proyek
 ```
 
@@ -66,7 +76,7 @@ siab-dkpp/
 ## 🚀 Panduan Instalasi & Penggunaan
 
 ### Prasyarat
-Pastikan Anda sudah menginstal **Node.js** (versi 18 ke atas direkomendasikan) di komputer Anda.
+Pastikan Anda sudah menginstal **Node.js** (versi 18 ke atas) di komputer Anda.
 
 ### Langkah-langkah
 
@@ -82,17 +92,17 @@ Pastikan Anda sudah menginstal **Node.js** (versi 18 ke atas direkomendasikan) d
    ```
 
 3. **Jalankan Aplikasi**
-   - **Mode Pengembangan (dengan Chrome DevTools)**:
+   - **Mode Pengembangan** (dengan Chrome DevTools):
      ```bash
      npm run dev
      ```
-   - **Mode Produksi (Aplikasi Biasa)**:
+   - **Mode Produksi**:
      ```bash
      npm start
      ```
 
 > [!NOTE]
-> Saat pertama kali Anda melakukan pencarian berita, aplikasi akan mengunduh model AI pilihan Anda dari server Hugging Face ke dalam cache browser lokal. Proses ini membutuhkan waktu beberapa menit tergantung koneksi internet Anda. Setelah terunduh, pencarian selanjutnya akan berjalan jauh lebih cepat dan dapat dilakukan secara luring (offline) untuk bagian perangkuman AI-nya.
+> Tidak ada model AI yang perlu diunduh. Seluruh proses rangkuman dilakukan secara algoritmik dan berjalan instan tanpa koneksi internet tambahan setelah berita berhasil di-*crawl*.
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "name": "siab-dkpp",
   "version": "1.0.0",
-  "description": "Sistem Informasi Analisis Berita DKPP - Crawling & Summarization Tool untuk Dewan Kehormatan Penyelenggara Pemilu",
+  "description": "Sistem Informasi Agregator Berita DKPP - Crawling  Tool untuk Dewan Kehormatan Penyelenggara Pemilu",
   "main": "main.js",
   "scripts": {
     "start": "electron . --no-sandbox --disable-dev-shm-usage",
@@ -11,6 +11,7 @@
     "@mozilla/readability": "^0.5.0",
     "axios": "^1.7.9",
     "jsdom": "^24.1.0",
+    "lowdb": "^1.0.0",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {

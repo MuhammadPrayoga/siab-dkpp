@@ -14,19 +14,18 @@
 
   // ── State ────────────────────────────────────────────────────
   let articles = [];
-  let summaries = {};
-  let worker = null;
+  let snippets = {};
+  let pendingSnippets = 0;
+  let currentHistoryId = null;
   let isCrawling = false;
   let progressCleanup = null;
-  let pendingSummaries = 0;
-  let currentHistoryId = null;
 
-  // Default settings
   let settings = {
     maxResults: 50,
-    aiModel: 'Xenova/distilbart-cnn-12-6',
-    summaryLength: 'medium',
-    theme: 'light'
+    theme: 'light',
+    timeout: 25000,
+    requestDelay: 800,
+    maxHistory: 100
   };
 
   // ── DOM References ───────────────────────────────────────────
@@ -62,9 +61,6 @@
     emptyState: document.getElementById('empty-state'),
     errorSection: document.getElementById('error-section'),
     errorMessage: document.getElementById('error-message'),
-    aiStatusBadge: document.getElementById('ai-status-badge'),
-    aiStatusDot: document.getElementById('ai-status-dot'),
-    aiStatusText: document.getElementById('ai-status-text'),
 
     // History page
     historyList: document.getElementById('history-list'),
@@ -74,10 +70,21 @@
 
     // Settings page
     settingMaxResults: document.getElementById('setting-max-results'),
-    settingAiModel: document.getElementById('setting-ai-model'),
-    settingSummaryLength: document.getElementById('setting-summary-length'),
     settingTheme: document.getElementById('setting-theme'),
+    settingTimeout: document.getElementById('setting-timeout'),
+    settingRequestDelay: document.getElementById('setting-request-delay'),
+    settingMaxHistory: document.getElementById('setting-max-history'),
     btnClearCache: document.getElementById('btn-clear-cache'),
+
+    // About section
+    aboutVersion: document.getElementById('about-version'),
+    aboutElectron: document.getElementById('about-electron'),
+    aboutDbPath: document.getElementById('about-db-path'),
+
+    // Log terminal elements
+    logTerminal: document.getElementById('log-terminal'),
+    btnCopyLogs: document.getElementById('btn-copy-logs'),
+    btnClearLogs: document.getElementById('btn-clear-logs'),
   };
 
   // ── Tab Navigation ──────────────────────────────────────────
@@ -101,39 +108,68 @@
 
   // ── Settings Management ──────────────────────────────────────
 
-  function loadSettings() {
+  async function loadSettings() {
     try {
-      const stored = localStorage.getItem(SETTINGS_KEY);
-      if (stored) {
-        settings = { ...settings, ...JSON.parse(stored) };
+      // ── One-time migration from localStorage to database ──
+      const MIGRATION_FLAG = 'siab-dkpp-migrated-to-db';
+      if (!localStorage.getItem(MIGRATION_FLAG)) {
+        console.log('[RENDERER] Checking for localStorage data to migrate...');
+        const oldHistory = localStorage.getItem(HISTORY_KEY);
+        const oldSettings = localStorage.getItem(SETTINGS_KEY);
+        
+        if (oldHistory || oldSettings) {
+          const historyData = oldHistory ? JSON.parse(oldHistory) : [];
+          const settingsData = oldSettings ? JSON.parse(oldSettings) : {};
+          
+          await window.electronAPI.migrateLocalStorage({
+            history: historyData,
+            settings: settingsData
+          });
+          
+          console.log('[RENDERER] localStorage data migrated to database successfully');
+          // Clean up old localStorage data
+          localStorage.removeItem(HISTORY_KEY);
+          localStorage.removeItem(SETTINGS_KEY);
+        }
+        localStorage.setItem(MIGRATION_FLAG, 'true');
+      }
+
+      // ── Load settings from persistent database ──
+      const result = await window.electronAPI.getSettings();
+      if (result.success && result.data) {
+        settings = { ...settings, ...result.data };
       }
     } catch (e) {
       console.error('[RENDERER] Load settings error:', e);
     }
-    
+
     // Update DOM inputs to match loaded settings
     if (DOM.settingMaxResults) DOM.settingMaxResults.value = settings.maxResults;
-    if (DOM.settingAiModel) DOM.settingAiModel.value = settings.aiModel;
-    if (DOM.settingSummaryLength) DOM.settingSummaryLength.value = settings.summaryLength;
     if (DOM.settingTheme) DOM.settingTheme.value = settings.theme;
+    if (DOM.settingTimeout) DOM.settingTimeout.value = settings.timeout;
+    if (DOM.settingRequestDelay) DOM.settingRequestDelay.value = settings.requestDelay;
+    if (DOM.settingMaxHistory) DOM.settingMaxHistory.value = settings.maxHistory;
     
     applyTheme();
   }
 
-  function saveSettings() {
+  async function saveSettings() {
     settings = {
       maxResults: parseInt(DOM.settingMaxResults.value, 10),
-      aiModel: DOM.settingAiModel.value,
-      summaryLength: DOM.settingSummaryLength.value,
       theme: DOM.settingTheme.value,
+      timeout: parseInt(DOM.settingTimeout.value, 10),
+      requestDelay: parseInt(DOM.settingRequestDelay.value, 10),
+      maxHistory: parseInt(DOM.settingMaxHistory.value, 10)
     };
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    applyTheme();
 
-    // Trigger worker to preload new model
-    if (worker) {
-      worker.postMessage({ type: 'preload-model', model: settings.aiModel });
+    // Save to persistent database via IPC
+    try {
+      await window.electronAPI.saveSettings(settings);
+    } catch (e) {
+      console.error('[RENDERER] Save settings error:', e);
     }
+
+    applyTheme();
   }
 
   function applyTheme() {
@@ -145,128 +181,80 @@
   }
 
   // Attach change listeners to settings inputs
-  [DOM.settingMaxResults, DOM.settingAiModel, DOM.settingSummaryLength, DOM.settingTheme].forEach(el => {
+  [DOM.settingMaxResults, DOM.settingTheme, DOM.settingTimeout, DOM.settingRequestDelay, DOM.settingMaxHistory].forEach(el => {
     if (el) el.addEventListener('change', saveSettings);
   });
 
   if (DOM.btnClearCache) {
-    DOM.btnClearCache.addEventListener('click', () => {
+    DOM.btnClearCache.addEventListener('click', async () => {
       if (confirm('Apakah Anda yakin ingin menghapus seluruh riwayat dan cache? Tindakan ini tidak dapat dibatalkan.')) {
-        clearAllHistory();
-        renderHistoryPage();
+        await clearAllHistory();
+        await renderHistoryPage();
         alert('Data riwayat dan cache berhasil dibersihkan.');
+        logSystem('Data riwayat pencarian dan cache berhasil dibersihkan.', 'success');
       }
     });
   }
 
-  // ── Initialize Web Worker ────────────────────────────────────
+  // ── System Log Console Management ────────────────────────────
 
-  async function initWorker() {
-    try {
-      // Electron serves pages via file:// protocol, which blocks ES module workers.
-      // Workaround: fetch worker.js as text, wrap in a Blob URL, load as module worker.
-      const response = await fetch('worker.js');
-      const code = await response.text();
-      const blob = new Blob([code], { type: 'text/javascript' });
-      const blobUrl = URL.createObjectURL(blob);
-      worker = new Worker(blobUrl, { type: 'module' });
+  function logSystem(message, type = 'info') {
+    if (!DOM.logTerminal) return;
 
-      worker.onmessage = (e) => {
-        const data = e.data;
-        console.log('[RENDERER] Worker message:', data.type, data.message || '');
+    const time = new Date().toLocaleTimeString('id-ID');
+    const entry = document.createElement('div');
+    
+    let colorClass = 'text-slate-300';
+    let typeLabel = '[INFO]';
+    
+    if (type === 'success') {
+      colorClass = 'text-emerald-400 font-semibold';
+      typeLabel = '[SUCCESS]';
+    } else if (type === 'error') {
+      colorClass = 'text-red-400 font-semibold';
+      typeLabel = '[ERROR]';
+    } else if (type === 'warning') {
+      colorClass = 'text-amber-400';
+      typeLabel = '[WARN]';
+    } else if (type === 'debug') {
+      colorClass = 'text-cyan-400/80';
+      typeLabel = '[DEBUG]';
+    } else if (type === 'ai') {
+      colorClass = 'text-purple-400';
+      typeLabel = '[AI]';
+    }
 
-        switch (data.type) {
-          case 'status':
-            updateModelStatus(data.message, 'loading');
-            break;
+    entry.className = colorClass;
+    entry.innerHTML = `<span class="text-slate-500">[${time}]</span> <span class="opacity-90">${typeLabel}</span> ${message}`;
+    
+    DOM.logTerminal.appendChild(entry);
+    DOM.logTerminal.scrollTop = DOM.logTerminal.scrollHeight;
+  }
 
-          case 'model-progress':
-            updateModelProgress(data.message, data.progress);
-            break;
-
-          case 'model-ready':
-            updateModelStatus(data.message, 'ready');
-            setTimeout(() => {
-              DOM.modelSection.classList.add('hidden');
-            }, 2000);
-            break;
-
-          case 'model-error':
-            updateModelStatus(data.message, 'error');
-            break;
-
-          case 'summarizing':
-            updateCellSummary(data.index, '⏳ Merangkum...', 'loading');
-            break;
-
-          case 'result':
-            summaries[data.index] = data.summary;
-            updateCellSummary(data.index, data.summary, 'done');
-            pendingSummaries--;
-            if (pendingSummaries <= 0) {
-              onAllSummariesComplete();
-            }
-            break;
-
-          case 'error':
-            updateCellSummary(data.index, `⚠️ ${data.message}`, 'error');
-            pendingSummaries--;
-            if (pendingSummaries <= 0) {
-              onAllSummariesComplete();
-            }
-            break;
-        }
-      };
-
-      worker.onerror = (error) => {
-        console.error('[RENDERER] Worker fatal error:', error);
-        updateModelStatus(`Worker error: ${error.message}`, 'error');
-      };
-
-      console.log('[RENDERER] Web Worker initialized');
+  if (DOM.btnCopyLogs) {
+    DOM.btnCopyLogs.addEventListener('click', () => {
+      if (!DOM.logTerminal) return;
+      const text = DOM.logTerminal.innerText;
+      navigator.clipboard.writeText(text);
       
-      // Tell worker to preload the currently selected model
-      worker.postMessage({ type: 'preload-model', model: settings.aiModel });
-
-    } catch (error) {
-      console.error('[RENDERER] Failed to create Worker:', error);
-      updateModelStatus(
-        `Gagal menginisialisasi AI Worker: ${error.message}. Fitur rangkuman tidak tersedia.`,
-        'error'
-      );
-    }
+      const originalText = DOM.btnCopyLogs.textContent;
+      DOM.btnCopyLogs.textContent = 'Tersalin!';
+      DOM.btnCopyLogs.classList.add('text-emerald-600', 'dark:text-emerald-400');
+      setTimeout(() => {
+        DOM.btnCopyLogs.textContent = originalText;
+        DOM.btnCopyLogs.classList.remove('text-emerald-600', 'dark:text-emerald-400');
+      }, 1500);
+    });
   }
 
-  // ── Model Status Helpers ─────────────────────────────────────
-
-  function updateModelStatus(message, state) {
-    DOM.modelSection.classList.remove('hidden');
-    DOM.modelStatusMessage.textContent = message;
-
-    // Update header badge
-    DOM.aiStatusBadge.classList.remove('hidden');
-    DOM.aiStatusBadge.classList.add('flex');
-
-    if (state === 'ready') {
-      DOM.aiStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
-      DOM.aiStatusText.textContent = 'AI Siap';
-      DOM.aiStatusText.className = 'text-emerald-400 dark:text-emerald-300';
-    } else if (state === 'loading') {
-      DOM.aiStatusDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
-      DOM.aiStatusText.textContent = 'Memuat AI...';
-      DOM.aiStatusText.className = 'text-amber-500 dark:text-amber-400';
-    } else if (state === 'error') {
-      DOM.aiStatusDot.className = 'w-2 h-2 rounded-full bg-red-400';
-      DOM.aiStatusText.textContent = 'AI Error';
-      DOM.aiStatusText.className = 'text-red-500 dark:text-red-400';
-    }
+  if (DOM.btnClearLogs) {
+    DOM.btnClearLogs.addEventListener('click', () => {
+      if (!DOM.logTerminal) return;
+      DOM.logTerminal.innerHTML = '<div class="text-slate-500">[SYSTEM] Konsol log dibersihkan. Siap menerima perintah pencarian.</div>';
+    });
   }
 
-  function updateModelProgress(message, progress) {
-    DOM.modelSection.classList.remove('hidden');
-    DOM.modelStatusMessage.textContent = message;
-    DOM.modelProgressBar.style.width = `${Math.round(progress * 100)}%`;
-  }
+
 
   // ── Table Cell Summary Update ────────────────────────────────
 
@@ -287,12 +275,13 @@
     }
   }
 
-  // ── All Summaries Complete Handler ───────────────────────────
+  // ── All Snippets Complete Handler ───────────────────────────
 
-  function onAllSummariesComplete() {
-    console.log('[RENDERER] All summaries complete');
+  async function onAllSnippetsComplete() {
+    console.log('[RENDERER] All snippets complete');
+    logSystem('Seluruh proses ekstraksi cuplikan berita selesai dilakukan!', 'success');
     if (currentHistoryId) {
-      updateHistorySummaries(currentHistoryId, summaries);
+      await updateHistorySnippets(currentHistoryId, snippets);
     }
   }
 
@@ -304,6 +293,7 @@
     progressCleanup = window.electronAPI.onCrawlProgress((data) => {
       DOM.progressSection.classList.remove('hidden');
       DOM.progressMessage.textContent = data.message;
+      logSystem(data.message, 'debug');
 
       if (data.total > 0) {
         const pct = Math.round((data.current / data.total) * 100);
@@ -319,13 +309,14 @@
     e.preventDefault();
 
     if (isCrawling) return;
+
     isCrawling = true;
 
     // Reset state
     articles = [];
-    summaries = {};
+    snippets = {};
     currentHistoryId = null;
-    pendingSummaries = 0;
+    pendingSnippets = 0;
 
     // UI: show loading
     setCrawlButtonLoading(true);
@@ -345,10 +336,13 @@
       keyword: DOM.keywordInput.value.trim(),
       dateFrom: DOM.dateFrom.value || null,
       dateTo: DOM.dateTo.value || null,
-      maxResults: settings.maxResults
+      maxResults: settings.maxResults,
+      timeout: settings.timeout,
+      requestDelay: settings.requestDelay
     };
 
     console.log('[RENDERER] Starting crawl with params:', params);
+    logSystem(`Memulai crawling data untuk kata kunci: "${params.keyword || 'DKPP'}"...`, 'info');
 
     try {
       const result = await window.electronAPI.startCrawl(params);
@@ -362,20 +356,22 @@
           DOM.emptyState.classList.remove('hidden');
           DOM.progressSection.classList.add('hidden');
           showError(result.message || 'Tidak ada berita ditemukan untuk query ini.');
+          logSystem('Pencarian selesai, tetapi tidak ada artikel berita yang ditemukan untuk kata kunci ini.', 'warning');
           return;
         }
 
         // Render table
         renderTable(articles);
 
-        // Save to history (initial, without summaries)
-        currentHistoryId = saveToHistory(params, articles);
+        // Save to history (initial, without snippets)
+        currentHistoryId = await saveToHistory(params, articles);
 
-        // Start AI summarization
-        startSummarization(articles);
+        // Start snippet extraction
+        logSystem(`Berhasil menarik ${articles.length} berita. Memulai ekstraksi cuplikan teks...`, 'success');
+        extractSnippets(articles);
 
         // Update progress
-        DOM.progressMessage.textContent = `✅ ${articles.length} artikel berhasil di-crawl. Memulai analisis AI...`;
+        DOM.progressMessage.textContent = `✅ ${articles.length} artikel berhasil di-crawl. Memulai ekstraksi cuplikan...`;
         DOM.progressBar.style.width = '100%';
 
         // Hide progress after delay
@@ -385,6 +381,7 @@
 
       } else {
         showError(result.error || 'Terjadi kesalahan yang tidak diketahui.');
+        logSystem(`Proses crawling gagal: ${result.error || 'Kesalahan tidak diketahui'}`, 'error');
       }
 
     } catch (error) {
@@ -431,7 +428,7 @@
         <td class="px-4 py-3">${statusBadge}</td>
         <td class="px-4 py-3">
           <div id="summary-cell-${article.index}" class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3">
-            ${article.hasText ? '⏳ Menunggu rangkuman...' : '—'}
+            ${article.hasText ? '⏳ Menunggu cuplikan...' : '—'}
           </div>
         </td>
       `;
@@ -440,36 +437,195 @@
     });
   }
 
-  // ── Start AI Summarization ───────────────────────────────────
+  const INDONESIAN_STOPWORDS = new Set([
+    "ada", "adalah", "adanya", "adapun", "agak", "agaknya", "agar", "akan", "akankah", "akhir",
+    "akhiri", "akhirnya", "aku", "akulah", "amat", "amatlah", "anda", "andalah", "antar", "antara",
+    "antaranya", "apa", "apaan", "apabila", "apakah", "apalagi", "apatah", "artinya", "asal",
+    "asalkan", "atas", "atau", "ataukah", "ataupun", "awal", "awalnya", "bagai", "bagaikan",
+    "bagaimana", "bagaimanakah", "bagaimanapun", "bagi", "bagian", "bahkan", "bahwa", "bahwasanya",
+    "baik", "bakal", "bakalan", "balik", "banyak", "bapak", "baru", "bawah", "beberapa", "begini",
+    "beginian", "beginikah", "beginilah", "begitu", "begitukah", "begitulah", "begitupun", "bekerja",
+    "belakang", "belakangan", "belum", "belumlah", "benar", "benarkah", "benarlah", "berada",
+    "berakhir", "berakhirlah", "berakhirnya", "berapa", "berapakah", "berapalah", "berapapun",
+    "berarti", "berawal", "berbagai", "berdatangan", "beri", "berikan", "berikut", "berikutnya",
+    "berjumlah", "berkali-kali", "berkata", "berkat", "berkehendak", "berkeinginan", "berkenaan",
+    "berlainan", "berlalu", "berlangsung", "berlebihan", "bermacam", "bermacam-macam", "bermaksud",
+    "bermula", "bersama", "bersama-sama", "bersiap", "bersiap-siap", "bertanya", "bertanya-tanya",
+    "berturut", "berturut-turut", "bertutur", "berujar", "berupa", "besar", "betul", "betulkah",
+    "biasa", "biasanya", "bila", "bilakah", "bisa", "bisakah", "boleh", "bolehkah", "bolehlah",
+    "buat", "bukan", "bukankah", "bukanlah", "bukannya", "bulan", "bung", "cara", "caranya",
+    "cukup", "cukuplah", "cukupnya", "cuma", "dahulu", "dalam", "dan", "dapat", "dari", "daripada",
+    "datang", "dekat", "demi", "demikian", "demikianlah", "dengan", "depan", "di", "dia", "diakhiri",
+    "diakhirinya", "dialah", "diantara", "diantaranya", "diberi", "diberikan", "diberikannya",
+    "dibuat", "dibuatnya", "didapat", "didatangkan", "digunakan", "diibaratkan", "diibaratkannya",
+    "diingat", "diingatkan", "diinginkan", "dijawab", "dijelaskan", "dijelaskannya", "dikarenakan",
+    "dikatakan", "dikatakannya", "dikerjakan", "diketahui", "diketahuinya", "dikira", "dilakukan",
+    "dilalui", "dilihat", "dimaksud", "dimaksudkan", "dimaksudkannya", "dimaksudnya", "diminta",
+    "dimintai", "dimisalkan", "dimulai", "dimulailah", "dimulainya", "dimungkinkan", "dini",
+    "dipastikan", "diperbuat", "diperbuatnya", "dipergunakan", "diperkirakan", "diperlihatkan",
+    "diperlukan", "diperlukannya", "dipersoalkan", "dipertanyakan", "dipunyai", "diri", "dirinya",
+    "disampaikan", "disebut", "disebutkan", "disebutkannya", "disini", "disinilah", "ditambahkan",
+    "ditandaskan", "ditanya", "ditanyai", "ditanyakan", "ditegaskan", "ditujukan", "ditunjuk",
+    "ditunjuki", "ditunjukkan", "ditunjukkannya", "ditunjuknya", "dituturkan", "dituturkannya",
+    "diucapkan", "diucapkannya", "diungkapkan", "dong", "dua", "dulu", "empat", "enggan", "enggankah",
+    "engkau", "engkaukah", "engkaulah", "hal", "hampir", "hanya", "hanyakah", "hanyalah", "hari",
+    "harus", "haruskah", "haruslah", "hebat", "hendak", "hendaklah", "hendaknya", "hingga", "ia",
+    "ialah", "ibarat", "ibaratkan", "ibaratnya", "ibu", "ikut", "ingat", "ingat-ingat", "ingin",
+    "inginkah", "inginkan", "ini", "inikah", "inilah", "itu", "itukah", "itulah", "jadi", "jadilah",
+    "jadinya", "jangan", "jangankah", "janganlah", "janji", "jauh", "jawab", "jawaban", "jawabnya",
+    "jelas", "jelaskan", "jelaslah", "jelasnya", "jika", "jikalau", "juga", "jumlah", "jumlahnya",
+    "justru", "kala", "kalau", "kalaukah", "kalaupun", "kalian", "kami", "kamilah", "kamu", "kamulah",
+    "kan", "kapan", "kapankah", "kapanpun", "karena", "karenanya", "kasus", "kata", "katakan",
+    "katakanlah", "katanya", "ke", "keadaan", "kebetulan", "kecil", "kedua", "keduanya", "keinginan",
+    "kelamaan", "kelihatan", "kelihatannya", "kelima", "keluar", "kembali", "kemudian", "kemungkinan",
+    "kemungkinannya", "kenapa", "kepada", "kepadanya", "kesampaian", "keseluruhan", "keseluruhannya",
+    "keterlaluan", "ketika", "khususnya", "kini", "kinilah", "kira", "kira-kira", "kiranya", "kita",
+    "kitalah", "kok", "kurang", "lagi", "lagian", "lah", "lain", "lainnya", "lalu", "lama", "lamanya",
+    "lanjut", "lanjutnya", "lebih", "lewat", "lima", "luar", "macam", "maka", "makanya", "makin",
+    "malah", "malahan", "mampu", "mampukah", "mana", "manakala", "manalagi", "masa", "masalah",
+    "masalahnya", "masih", "masihkah", "masing", "masing-masing", "mau", "maupun", "melainkan",
+    "melakukan", "melalui", "melihat", "melihatnya", "memang", "memastikan", "memberi", "memberikan",
+    "membuat", "memerlukan", "memihak", "meminta", "memintakan", "memisalkan", "memperbuat",
+    "mempergunakan", "memperkirakan", "memperlihatkan", "mempersiapkan", "mempersoalkan", "mempertanyakan",
+    "mempunyai", "memulai", "menandaskan", "menanti", "menanti-nanti", "menantikan", "menanya",
+    "menanyai", "menanyakan", "mendapat", "mendapatkan", "mendatang", "mendatangi", "mendatangkan",
+    "menegaskan", "mengakhiri", "mengapa", "mengatakan", "mengatakannya", "mengenai", "mengerjakan",
+    "mengetahui", "menggunakan", "menghendaki", "mengibaratkan", "mengibaratkannya", "mengingat",
+    "mengingatkan", "menginginkan", "mengira", "mengucapkan", "mengucapkannya", "mengungkapkan",
+    "menjadi", "menjawab", "menjelaskan", "menuju", "menunjuk", "menunjuki", "menunjukkan", "menunjuknya",
+    "menurut", "menuturkan", "menyampaikan", "menyangkut", "menyatakan", "menyebutkan", "menyeluruh",
+    "menyiapkan", "merasa", "mereka", "merekalah", "merupakan", "meski", "meskipun", "meyakini",
+    "meyakinkan", "minta", "mirip", "misal", "misalkan", "misalnya", "mula", "mulai", "mulailah",
+    "mulanya", "mungkin", "mungkinkah", "nah", "naik", "namun", "nanti", "nantinya", "nyaris",
+    "nyata", "nyatanya", "oleh", "olehnya", "pada", "padahal", "padanya", "pak", "paling", "panjang",
+    "pantas", "pantaskah", "pantaslah", "para", "pasti", "pastilah", "penting", "pentingnya", "per",
+    "percuma", "perlu", "perlukah", "perlunya", "pernah", "persoalan", "pertama", "pertama-tama",
+    "pertanyaan", "pertanyakan", "pihak", "pihaknya", "pukul", "pula", "pun", "punya", "rasa",
+    "rasanya", "rupa", "rupanya", "saat", "saatnya", "saja", "sajalah", "saling", "sama", "sama-sama",
+    "sambil", "sampai", "sampai-sampai", "sampaikan", "sana", "sangat", "sangatlah", "satu", "saya",
+    "sayalah", "se", "sebab", "sebabnya", "sebagai", "sebagaimana", "sebagainya", "sebagian",
+    "sebaik", "sebaik-baiknya", "sebaiknya", "sebaliknya", "sebanyak", "sebegini", "sebegitu",
+    "sebelum", "sebelumnya", "sebenarnya", "seberapa", "sebesar", "sebetulnya", "sebisanya", "sebuah",
+    "sebut", "sebutlah", "sebutnya", "secara", "secukupnya", "sedang", "sedangkan", "sedemikian",
+    "sedikit", "sedikitnya", "seenaknya", "segala", "segalanya", "segera", "seharusnya", "sehingga",
+    "seingat", "sejak", "sejauh", "sejenak", "sejumlah", "sekadar", "sekadarnya", "sekali", "sekali-kali",
+    "sekalian", "sekaligus", "sekalipun", "sekarang", "sekaranglah", "sekecil", "seketika", "sekiranya",
+    "sekitar", "sekitarnya", "sekurang-kurangnya", "sekurangnya", "sela", "selain", "selaku", "selalu",
+    "selama", "selama-lamanya", "selamanya", "selanjutnya", "seluruh", "seluruhnya", "semacam",
+    "semakin", "semampu", "semampunya", "semasa", "semasih", "semata", "semata-mata", "semaunya",
+    "sementara", "semisal", "semisalnya", "sempat", "semua", "semuanya", "semula", "sendiri",
+    "sendirian", "sendirinya", "seolah", "seolah-olah", "seorang", "sepanjang", "sepantasnya",
+    "sepantasnyalah", "seperlunya", "seperti", "sepertinya", "sepihak", "sering", "seringnya",
+    "serta", "serupa", "sesaat", "sesama", "sesampai", "sesegera", "sesekali", "seseorang", "sesuatu",
+    "sesuatunya", "sesudah", "sesudahnya", "setelah", "setempat", "setengah", "seterusnya", "setiap",
+    "setiba", "setibanya", "setidak-tidaknya", "setidaknya", "setinggi", "seusai", "sewaktu", "siap",
+    "siapa", "siapakah", "siapapun", "sini", "sinilah", "soal", "soalnya", "suatu", "sudah", "sudahkah",
+    "sudahlah", "supaya", "tadi", "tadinya", "tahu", "tahun", "tak", "tambah", "tambahnya", "tampak",
+    "tampaknya", "tandas", "tandasnya", "tanpa", "tanya", "tanyakan", "tanyanya", "tapi", "tegas",
+    "tegasnya", "telah", "tempat", "tengah", "tentang", "tentu", "tentulah", "tentunya", "tepat",
+    "terakhir", "terasa", "terbanyak", "terdahulu", "terdapat", "terdiri", "terhadap", "terhadapnya",
+    "teringat", "teringat-ingat", "terjadi", "terjadilah", "terjadinya", "terkira", "terlalu",
+    "terlebih", "terlihat", "termasuk", "ternyata", "tersampaikan", "tersebut", "tersebutlah",
+    "tertentu", "tertuju", "terus", "terutama", "tetap", "tetapi", "tiap", "tiba", "tiba-tiba", "tidak",
+    "tidakkah", "tidaklah", "tiga", "tinggi", "toh", "tunjuk", "turut", "tutur", "tuturnya", "ucap",
+    "ucapnya", "ujar", "ujarnya", "umum", "umumnya", "ungkap", "ungkapnya", "untuk", "usah", "usai",
+    "waduh", "wah", "wahai", "waktu", "waktunya", "walau", "walaupun", "wong", "yaitu", "yakin", "yakni", "yang"
+  ]);
 
-  function startSummarization(articleList) {
-    if (!worker) {
-      console.warn('[RENDERER] Worker not available, skipping summarization');
-      articleList.forEach((a) => {
-        updateCellSummary(a.index, '⚠️ AI Worker tidak tersedia', 'error');
-      });
-      return;
+  /**
+   * Extractive Summarization Algorithm (Term Frequency based)
+   * 1. Split text into sentences
+   * 2. Calculate word frequencies (ignoring stopwords)
+   * 3. Score sentences based on word frequencies
+   * 4. Return top 2 sentences, joined, up to maxChars
+   */
+  function generateExtractiveSummary(text, maxChars = 500) {
+    if (!text || text.trim() === '') return '';
+
+    // 1. Split into sentences (simple regex ending with . ! ?)
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    
+    // If it's already very short, just return it
+    if (text.length <= maxChars && sentences.length <= 2) {
+      return text.trim();
     }
 
-    // Show model section
-    DOM.modelSection.classList.remove('hidden');
+    // 2. Calculate word frequencies
+    const wordFreq = {};
+    const cleanSentences = sentences.map(s => s.trim()).filter(s => s.length > 10);
+    
+    if (cleanSentences.length === 0) return text.substring(0, maxChars) + '...';
 
-    // Queue articles for summarization
+    cleanSentences.forEach(sentence => {
+      // Get words (alphanumeric only)
+      const words = sentence.toLowerCase().match(/[a-z0-9]+/g) || [];
+      words.forEach(word => {
+        if (!INDONESIAN_STOPWORDS.has(word) && word.length > 2) {
+          wordFreq[word] = (wordFreq[word] || 0) + 1;
+        }
+      });
+    });
+
+    // 3. Score sentences
+    const sentenceScores = cleanSentences.map((sentence, originalIndex) => {
+      const words = sentence.toLowerCase().match(/[a-z0-9]+/g) || [];
+      let score = 0;
+      words.forEach(word => {
+        if (wordFreq[word]) {
+          score += wordFreq[word];
+        }
+      });
+      
+      // Normalize score by length to avoid just picking the longest sentence
+      // But give slight boost to first sentences as they usually contain intro
+      const normalizedScore = words.length > 0 ? (score / words.length) : 0;
+      const positionBoost = (cleanSentences.length - originalIndex) / cleanSentences.length; 
+      
+      return {
+        text: sentence,
+        score: normalizedScore + (positionBoost * 0.5),
+        index: originalIndex
+      };
+    });
+
+    // 4. Sort by score descending and take top 2
+    sentenceScores.sort((a, b) => b.score - a.score);
+    const topSentences = sentenceScores.slice(0, 2);
+
+    // Sort back by original chronological order
+    topSentences.sort((a, b) => a.index - b.index);
+
+    // 5. Join and truncate if needed
+    let summary = topSentences.map(s => s.text).join(' ');
+
+    if (summary.length > maxChars) {
+      summary = summary.substring(0, maxChars).trim() + '...';
+    }
+
+    return summary;
+  }
+
+  // ── Snippet Extraction ───────────────────────────────────────
+
+  function extractSnippets(articleList) {
+    // Queue articles for snippet extraction
     const articlesWithText = articleList.filter(a => a.hasText);
-    pendingSummaries = articlesWithText.length;
-    console.log(`[RENDERER] Queueing ${articlesWithText.length} articles for summarization`);
+    pendingSnippets = articlesWithText.length;
+    console.log(`[RENDERER] Extracting snippets for ${articlesWithText.length} articles`);
 
     if (articlesWithText.length === 0) return;
 
+    logSystem('Mengekstrak cuplikan teks...', 'info');
     articlesWithText.forEach((article) => {
-      worker.postMessage({
-        type: 'summarize',
-        text: article.cleanText,
-        index: article.index,
-        model: settings.aiModel,
-        summaryLength: settings.summaryLength
-      });
+      // Extractive summary max 500 chars
+      let snippet = generateExtractiveSummary(article.cleanText, 500);
+      
+      snippets[article.index] = snippet;
+      updateCellSummary(article.index, snippet, 'done');
+      pendingSnippets--;
     });
+    
+    onAllSnippetsComplete();
   }
 
   // ── CSV Download ─────────────────────────────────────────────
@@ -481,16 +637,18 @@
     }
 
     console.log('[RENDERER] Generating CSV...');
+    const filename = `siab-dkpp_${getDateStamp()}.csv`;
+    logSystem(`Menyusun dan mengekspor ${articles.length} hasil analisis ke berkas CSV...`, 'info');
 
     // BOM for UTF-8 support in Excel
     const BOM = '\uFEFF';
 
     // CSV Header
-    const headers = ['No', 'Judul', 'Sumber', 'Link', 'Tanggal', 'Status Ekstraksi', 'Teks Bersih', 'Rangkuman AI'];
+    const headers = ['No', 'Judul', 'Sumber', 'Link', 'Tanggal', 'Status Ekstraksi', 'Teks Bersih', 'Cuplikan Teks'];
 
     // CSV Rows
     const rows = articles.map((article, i) => {
-      const summary = summaries[article.index] || '';
+      const summary = snippets[article.index] || '';
       return [
         i + 1,
         csvEscape(article.title),
@@ -514,7 +672,7 @@
 
     const link = document.createElement('a');
     link.href = url;
-    link.download = `siab-dkpp_${getDateStamp()}.csv`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -523,15 +681,15 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     console.log('[RENDERER] CSV downloaded');
+    logSystem(`Unduhan berhasil: berkas "${filename}" telah disimpan!`, 'success');
   });
 
   // ══════════════════════════════════════════════════════════════
-  // HISTORY FUNCTIONS
+  // HISTORY FUNCTIONS (Persistent Database via IPC)
   // ══════════════════════════════════════════════════════════════
 
-  function saveToHistory(params, articleList) {
+  async function saveToHistory(params, articleList) {
     try {
-      const history = loadHistory();
       const id = Date.now().toString();
 
       const entry = {
@@ -549,16 +707,13 @@
           link: a.link,
           date: a.date,
           hasText: a.hasText,
-          // NOTE: cleanText is NOT stored (too large for localStorage)
+          cleanText: a.cleanText || '', // Now stored! (no size limit with file-based DB)
         })),
-        summaries: {},
+        snippets: {},
       };
 
-      history.unshift(entry);
-      if (history.length > MAX_HISTORY) history.pop();
-
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-      console.log('[RENDERER] History saved:', id);
+      await window.electronAPI.saveHistory(entry);
+      console.log('[RENDERER] History saved to database:', id);
       return id;
 
     } catch (error) {
@@ -567,47 +722,44 @@
     }
   }
 
-  function updateHistorySummaries(historyId, summariesData) {
+  async function updateHistorySnippets(historyId, snippetsData) {
     try {
-      const history = loadHistory();
-      const entry = history.find(h => h.id === historyId);
-      if (entry) {
-        entry.summaries = { ...summariesData };
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-        console.log('[RENDERER] History summaries updated for:', historyId);
-      }
+      await window.electronAPI.updateSnippets(historyId, snippetsData);
+      console.log('[RENDERER] History snippets updated for:', historyId);
     } catch (error) {
-      console.error('[RENDERER] Failed to update history summaries:', error);
+      console.error('[RENDERER] Failed to update history snippets:', error);
     }
   }
 
-  function loadHistory() {
+  async function loadHistory() {
     try {
-      const data = localStorage.getItem(HISTORY_KEY);
-      return data ? JSON.parse(data) : [];
+      const result = await window.electronAPI.getHistory();
+      return (result.success && result.data) ? result.data : [];
     } catch {
       return [];
     }
   }
 
-  function deleteHistoryItem(id) {
+  async function deleteHistoryItem(id) {
     try {
-      let history = loadHistory();
-      history = history.filter(h => h.id !== id);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      await window.electronAPI.deleteHistory(id);
     } catch (error) {
       console.error('[RENDERER] Failed to delete history item:', error);
     }
   }
 
-  function clearAllHistory() {
-    localStorage.removeItem(HISTORY_KEY);
+  async function clearAllHistory() {
+    try {
+      await window.electronAPI.clearHistory();
+    } catch (error) {
+      console.error('[RENDERER] Failed to clear history:', error);
+    }
   }
 
   // ── Render History Page ──────────────────────────────────────
 
-  function renderHistoryPage() {
-    const history = loadHistory();
+  async function renderHistoryPage() {
+    const history = await loadHistory();
     DOM.historyCount.textContent = `${history.length} riwayat tersimpan`;
 
     if (history.length === 0) {
@@ -640,7 +792,7 @@
         const status = a.hasText
           ? '<span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20">OK</span>'
           : '<span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-500/20">Gagal</span>';
-        const summary = (entry.summaries && entry.summaries[a.index]) || '—';
+        const summary = (entry.snippets && entry.snippets[a.index]) || '—';
 
         return `
           <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
@@ -703,7 +855,7 @@
                     <th class="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase w-24">Sumber</th>
                     <th class="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase w-32">Tanggal</th>
                     <th class="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase w-14">Status</th>
-                    <th class="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase min-w-[180px]">Rangkuman AI</th>
+                    <th class="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase min-w-[180px]">Cuplikan Teks</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200 dark:divide-slate-800/40">
@@ -719,7 +871,7 @@
 
   // ── History Event Delegation ──────────────────────────────────
 
-  DOM.historyList.addEventListener('click', (e) => {
+  DOM.historyList.addEventListener('click', async (e) => {
     const toggleBtn = e.target.closest('[data-action="toggle-detail"]');
     const deleteBtn = e.target.closest('[data-action="delete-item"]');
 
@@ -734,10 +886,19 @@
 
     if (deleteBtn) {
       const id = deleteBtn.dataset.id;
-      deleteHistoryItem(id);
-      renderHistoryPage();
+      await deleteHistoryItem(id);
+      await renderHistoryPage();
     }
   });
+
+  if (DOM.clearHistoryBtn) {
+    DOM.clearHistoryBtn.addEventListener('click', async () => {
+      if (confirm('Apakah Anda yakin ingin menghapus seluruh riwayat pencarian? Tindakan ini tidak dapat dibatalkan.')) {
+        await clearAllHistory();
+        await renderHistoryPage();
+      }
+    });
+  }
 
   // ── UI Helpers ───────────────────────────────────────────────
 
@@ -783,7 +944,25 @@
   // ── Boot ─────────────────────────────────────────────────────
 
   console.log('[RENDERER] Renderer process loaded');
-  loadSettings(); // Apply initial settings and theme
-  initWorker();
+
+  // Async boot: load settings from database, then initialize worker
+  async function loadAppInfo() {
+    try {
+      const info = await window.electronAPI.getAppInfo();
+      if (info) {
+        if (DOM.aboutVersion) DOM.aboutVersion.textContent = `v${info.version}`;
+        if (DOM.aboutElectron) DOM.aboutElectron.textContent = `Electron v${info.electronVersion}`;
+        if (DOM.aboutDbPath) DOM.aboutDbPath.textContent = info.dbPath;
+      }
+    } catch (e) {
+      console.error('[RENDERER] Failed to load app info:', e);
+    }
+  }
+
+  (async () => {
+    await loadSettings();
+    await renderHistoryPage();
+    await loadAppInfo();
+  })();
 
 })();

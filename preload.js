@@ -33,7 +33,43 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => {
       ipcRenderer.removeListener('crawl-progress', handler);
     };
-  }
+  },
+
+  // ── Database Operations (History) ────────────────────────────
+
+  /** Get all history entries from persistent database */
+  getHistory: () => ipcRenderer.invoke('db-get-history'),
+
+  /** Save a new history entry to persistent database */
+  saveHistory: (entry) => ipcRenderer.invoke('db-save-history', entry),
+
+  /** Update snippets for a specific history entry */
+  updateSnippets: (historyId, snippets) =>
+    ipcRenderer.invoke('db-update-snippets', { historyId, snippets }),
+
+  /** Delete a single history entry */
+  deleteHistory: (historyId) => ipcRenderer.invoke('db-delete-history', historyId),
+
+  /** Clear all history entries */
+  clearHistory: () => ipcRenderer.invoke('db-clear-history'),
+
+  // ── Database Operations (Settings) ───────────────────────────
+
+  /** Get application settings from persistent database */
+  getSettings: () => ipcRenderer.invoke('db-get-settings'),
+
+  /** Save application settings to persistent database */
+  saveSettings: (data) => ipcRenderer.invoke('db-save-settings', data),
+
+  // ── App Info ─────────────────────────────────────────────────
+
+  /** Get application info (version, Electron version, database path) */
+  getAppInfo: () => ipcRenderer.invoke('get-app-info'),
+
+  // ── Migration ────────────────────────────────────────────────
+
+  /** Migrate localStorage data to persistent database (one-time) */
+  migrateLocalStorage: (data) => ipcRenderer.invoke('db-migrate-localstorage', data),
 });
 
 console.log('[PRELOAD] Context bridge exposed: window.electronAPI');

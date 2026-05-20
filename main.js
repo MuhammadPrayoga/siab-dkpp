@@ -8,6 +8,7 @@ const path = require('path');
 const RSSParser = require('rss-parser');
 const { JSDOM } = require('jsdom');
 const { Readability } = require('@mozilla/readability');
+const db = require('./database');
 
 let mainWindow;
 
@@ -20,6 +21,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     backgroundColor: '#020617',
+    icon: path.join(__dirname, 'public/logo_dkpp.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -42,6 +44,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  db.initDatabase();
   createWindow();
 
   app.on('activate', () => {
@@ -99,7 +102,7 @@ function extractArticleUrl(item) {
 
 // ── Fetch & Extract Clean Text from Article ──────────────────
 
-async function extractArticleText(url, hiddenWindow) {
+async function extractArticleText(url, hiddenWindow, timeout = 25000) {
   return new Promise((resolve) => {
     console.log(`[MAIN] Fetching article via Browser: ${url}`);
     
@@ -122,7 +125,7 @@ async function extractArticleText(url, hiddenWindow) {
     timeoutId = setTimeout(() => {
       console.warn(`[MAIN] Timeout fetching: ${url}`);
       finish(null);
-    }, 25000);
+    }, timeout);
 
     hiddenWindow.webContents.on('did-fail-load', (e, code, desc, failedUrl, isMainFrame) => {
       if (isMainFrame) {
@@ -289,7 +292,7 @@ ipcMain.handle('start-crawl', async (event, params) => {
       console.log(`[MAIN] Title: ${title}`);
 
       const articleUrl = extractArticleUrl(item);
-      const cleanText = await extractArticleText(articleUrl, hiddenWindow);
+      const cleanText = await extractArticleText(articleUrl, hiddenWindow, params.timeout || 25000);
       const formattedDate = formatDate(item.pubDate || item.isoDate);
 
       const article = {
@@ -307,7 +310,7 @@ ipcMain.handle('start-crawl', async (event, params) => {
 
       // Rate limiting: small delay between requests
       if (i < totalItems - 1) {
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, params.requestDelay || 800));
       }
     }
 
@@ -353,3 +356,97 @@ function sendProgress(status, message, current, total) {
 }
 
 console.log('[MAIN] Main process initialized');
+
+// ── IPC Handler: App Info ────────────────────────────────────
+
+ipcMain.handle('get-app-info', async () => {
+  const dbDir = app.getPath('userData');
+  const dbPath = path.join(dbDir, 'database.json');
+  const pkg = require('./package.json');
+  return {
+    version: pkg.version,
+    electronVersion: process.versions.electron,
+    dbPath: dbPath
+  };
+});
+
+// ── IPC Handlers: Database Operations ────────────────────────
+
+ipcMain.handle('db-get-history', async () => {
+  try {
+    return { success: true, data: db.getHistory() };
+  } catch (error) {
+    console.error('[MAIN] db-get-history error:', error);
+    return { success: false, error: error.message, data: [] };
+  }
+});
+
+ipcMain.handle('db-save-history', async (_event, entry) => {
+  try {
+    const id = db.addHistoryEntry(entry);
+    return { success: true, id };
+  } catch (error) {
+    console.error('[MAIN] db-save-history error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('db-update-snippets', async (_event, { historyId, snippets }) => {
+  try {
+    db.updateHistorySnippets(historyId, snippets);
+    return { success: true };
+  } catch (error) {
+    console.error('[MAIN] db-update-snippets error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('db-delete-history', async (_event, historyId) => {
+  try {
+    db.deleteHistoryEntry(historyId);
+    return { success: true };
+  } catch (error) {
+    console.error('[MAIN] db-delete-history error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('db-clear-history', async () => {
+  try {
+    db.clearAllHistory();
+    return { success: true };
+  } catch (error) {
+    console.error('[MAIN] db-clear-history error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('db-get-settings', async () => {
+  try {
+    return { success: true, data: db.getSettings() };
+  } catch (error) {
+    console.error('[MAIN] db-get-settings error:', error);
+    return { success: false, error: error.message, data: {} };
+  }
+});
+
+ipcMain.handle('db-save-settings', async (_event, settingsData) => {
+  try {
+    const merged = db.saveSettings(settingsData);
+    return { success: true, data: merged };
+  } catch (error) {
+    console.error('[MAIN] db-save-settings error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('db-migrate-localstorage', async (_event, { history, settings }) => {
+  try {
+    db.importFromLocalStorage(history, settings);
+    return { success: true };
+  } catch (error) {
+    console.error('[MAIN] db-migrate-localstorage error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
