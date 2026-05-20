@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self' 'unsafe-inline' 'unsafe-eval';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net;
+        style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com;
+        connect-src *;
+        worker-src 'self' blob: https://cdn.jsdelivr.net;
+        img-src 'self' data: https:;
+        child-src 'self' blob:;
+      "
+    />
+    <title>SIAB DKPP — Sistem Informasi Analisis Berita</title>
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "system-ui", "sans-serif"],
+            },
+            colors: {
+              dkpp: {
+                navy: '#000066',
+                gold: '#FFD700',
+              }
+            }
+          },
+        },
+      };
+    </script>
+
+    <style>
+      /* ── Scrollbar ────────────────────────────────── */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+      .dark ::-webkit-scrollbar-thumb { background: #334155; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      .dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+      /* ── Animations ───────────────────────────────── */
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes shimmer {
+        0%   { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+      @keyframes spin-slow {
+        to { transform: rotate(360deg); }
+      }
+
+      .animate-fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+      }
+      .spin-slow {
+        animation: spin-slow 2s linear infinite;
+      }
+
+      /* ── Navigation Tabs ──────────────────────────── */
+      .nav-tab {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1rem;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: rgba(255, 215, 0, 0.7); /* Faded Gold */
+        border-bottom: 2px solid transparent;
+        background: none;
+        border-top: none;
+        border-left: none;
+        border-right: none;
+        cursor: pointer;
+        outline: none;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .nav-tab:hover { color: #FFD700; }
+      .nav-tab.active {
+        color: #FFD700;
+        border-bottom-color: #FFD700;
+      }
+
+      /* ── Progress Bar Fill ────────────────────────── */
+      .progress-fill {
+        transition: width 0.4s ease-in-out;
+        background: linear-gradient(90deg, #3b82f6, #60a5fa, #3b82f6);
+        background-size: 200% 100%;
+        animation: shimmer 2s infinite;
+      }
+
+      /* ── Table Row Hover ──────────────────────────── */
+      .table-row-hover { transition: background-color 0.15s ease; }
+      .table-row-hover:hover {
+        background-color: #f1f5f9 !important;
+      }
+      .dark .table-row-hover:hover {
+        background-color: rgba(51, 65, 85, 0.3) !important;
+      }
+    </style>
+  </head>
+
+  <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans min-h-screen flex flex-col transition-colors duration-300">
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- HEADER                                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <header class="bg-dkpp-navy shadow-md">
+      <div class="max-w-7xl mx-auto px-6">
+        <!-- Top bar: Logo + Title + AI Status -->
+        <div class="flex items-center justify-between py-3.5">
+          <div class="flex items-center gap-3">
+            <img
+              src="public/logo_dkpp.png"
+              alt="Logo DKPP RI"
+              class="w-10 h-10 object-contain"
+            />
+            <div>
+              <h1 class="text-lg font-bold tracking-tight">
+                <span class="text-white">SIAB</span>
+                <span class="text-dkpp-gold ml-0.5">DKPP</span>
+              </h1>
+              <p class="text-[11px] text-blue-200 font-medium tracking-wide">
+                Sistem Informasi Analisis Berita — DKPP RI
+              </p>
+            </div>
+          </div>
+
+          <!-- AI Status Badge -->
+          <div
+            id="ai-status-badge"
+            class="hidden items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-blue-800 bg-blue-900/50"
+          >
+            <span id="ai-status-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+            <span id="ai-status-text" class="text-slate-300">AI Model</span>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="flex gap-0.5 -mb-px">
+          <button id="nav-tab-crawl" class="nav-tab active">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            Crawling
+          </button>
+          <button id="nav-tab-history" class="nav-tab">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Riwayat
+          </button>
+          <button id="nav-tab-settings" class="nav-tab">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Pengaturan
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- MAIN CONTENT                                   -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <main class="flex-1">
+
+      <!-- ─────────────────────────────────────────── -->
+      <!-- PAGE: CRAWLING                               -->
+      <!-- ─────────────────────────────────────────── -->
+      <div id="page-crawl" class="max-w-7xl w-full mx-auto px-6 py-6 space-y-5">
+
+        <!-- Search / Filter Form -->
+        <section class="animate-fade-in">
+          <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm dark:shadow-none transition-colors">
+            <div class="flex items-center gap-2 mb-4">
+              <svg class="w-4 h-4 text-dkpp-navy dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              <h2 class="text-sm font-semibold text-slate-800 dark:text-white">Parameter Pencarian</h2>
+            </div>
+
+            <form id="crawl-form" class="space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Keyword -->
+                <div class="space-y-1.5">
+                  <label for="keyword-input"
+                    class="block text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                    Masukkan Pencarian
+                  </label>
+                  <input
+                    type="text"
+                    id="keyword-input"
+                    placeholder="Contoh: pelanggaran etik"
+                    class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all"
+                  />
+                </div>
+
+                <!-- Date From -->
+                <div class="space-y-1.5">
+                  <label for="date-from"
+                    class="block text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                    Dari Tanggal
+                  </label>
+                  <input
+                    type="date"
+                    id="date-from"
+                    class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all [color-scheme:light] dark:[color-scheme:dark]"
+                  />
+                </div>
+
+                <!-- Date To -->
+                <div class="space-y-1.5">
+                  <label for="date-to"
+                    class="block text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                    Sampai Tanggal
+                  </label>
+                  <input
+                    type="date"
+                    id="date-to"
+                    class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all [color-scheme:light] dark:[color-scheme:dark]"
+                  />
+                </div>
+              </div>
+
+              <!-- Submit Row -->
+              <div class="flex items-center justify-end pt-1">
+                <button
+                  type="submit"
+                  id="crawl-btn"
+                  class="inline-flex items-center gap-2 px-5 py-2.5 bg-dkpp-navy dark:bg-blue-600 hover:bg-blue-900 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg id="crawl-btn-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                  </svg>
+                  <svg id="crawl-btn-spinner" class="w-4 h-4 hidden spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                  </svg>
+                  <span id="crawl-btn-text">Mulai Crawling</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- Progress Section (hidden) -->
+        <section id="progress-section" class="hidden animate-fade-in">
+          <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm dark:shadow-none transition-colors">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+              </div>
+              <p id="progress-message" class="text-sm text-slate-700 dark:text-slate-300 flex-1">Memulai proses...</p>
+              <span id="progress-counter" class="text-xs text-slate-500 font-mono"></span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div id="progress-bar" class="h-full progress-fill rounded-full" style="width: 0%"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Model Status (hidden) -->
+        <section id="model-section" class="hidden animate-fade-in">
+          <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm dark:shadow-none transition-colors">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                </svg>
+              </div>
+              <p id="model-status-message" class="text-sm text-slate-700 dark:text-slate-300 flex-1">Menyiapkan model AI...</p>
+            </div>
+            <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div id="model-progress-bar"
+                class="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-300"
+                style="width: 0%"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Results Section (hidden) -->
+        <section id="results-section" class="hidden animate-fade-in">
+          <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm dark:shadow-none transition-colors">
+            <!-- Results header -->
+            <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <h2 class="text-sm font-semibold text-slate-800 dark:text-white">Hasil Analisis</h2>
+                <span id="article-count"
+                  class="text-[11px] font-medium px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20">
+                  0 artikel
+                </span>
+              </div>
+              <button id="download-csv-btn"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-600/10 hover:bg-emerald-100 dark:hover:bg-emerald-600/20 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium rounded-lg transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Download CSV
+              </button>
+            </div>
+
+            <!-- Results table -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800/40">
+                    <th class="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-10">#</th>
+                    <th class="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[200px]">Judul</th>
+                    <th class="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Sumber</th>
+                    <th class="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-36">Tanggal</th>
+                    <th class="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-16">Status</th>
+                    <th class="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[220px]">Rangkuman AI</th>
+                  </tr>
+                </thead>
+                <tbody id="results-table-body" class="divide-y divide-slate-200 dark:divide-slate-800/40">
+                  <!-- Rows injected by renderer.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Empty State -->
+        <section id="empty-state" class="animate-fade-in">
+          <div class="flex flex-col items-center justify-center py-20 text-center">
+            <div class="w-16 h-16 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none flex items-center justify-center mb-4 transition-colors">
+              <svg class="w-8 h-8 text-slate-400 dark:text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
+              </svg>
+            </div>
+            <h3 class="text-base font-semibold text-slate-800 dark:text-slate-400 mb-1.5">Belum Ada Data</h3>
+            <p class="text-sm text-slate-500 max-w-sm">
+              Gunakan form di atas untuk mencari berita terkait DKPP RI.
+              Sistem akan mengekstrak dan merangkum artikel secara otomatis.
+            </p>
+          </div>
+        </section>
+
+        <!-- Error Alert (hidden) -->
+        <section id="error-section" class="hidden animate-fade-in">
+          <div class="bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/15 rounded-xl p-4 shadow-sm dark:shadow-none transition-colors">
+            <div class="flex items-start gap-3">
+              <svg class="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+              </svg>
+              <div>
+                <h4 class="text-sm font-semibold text-red-800 dark:text-red-400 mb-0.5">Terjadi Kesalahan</h4>
+                <p id="error-message" class="text-sm text-red-600 dark:text-red-300/70"></p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ─────────────────────────────────────────── -->
+      <!-- PAGE: RIWAYAT                                -->
+      <!-- ─────────────────────────────────────────── -->
+      <div id="page-history" class="hidden max-w-7xl w-full mx-auto px-6 py-6 space-y-5">
+
+        <!-- History Header -->
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-semibold text-slate-800 dark:text-white">Riwayat Pencarian</h2>
+            <p id="history-count" class="text-xs text-slate-500 mt-0.5">0 riwayat tersimpan</p>
+          </div>
+          <button
+            id="clear-history-btn"
+            class="hidden inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/15 border border-red-200 dark:border-red-500/15 rounded-lg transition-all"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            Hapus Semua
+          </button>
+        </div>
+
+        <!-- History List -->
+        <div id="history-list" class="space-y-3">
+          <!-- Cards rendered by renderer.js -->
+        </div>
+
+        <!-- History Empty State -->
+        <div id="history-empty-state" class="flex flex-col items-center justify-center py-20 text-center">
+          <div class="w-16 h-16 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none flex items-center justify-center mb-4 transition-colors">
+            <svg class="w-8 h-8 text-slate-400 dark:text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <h3 class="text-base font-semibold text-slate-800 dark:text-slate-400 mb-1.5">Belum Ada Riwayat</h3>
+          <p class="text-sm text-slate-500 max-w-sm">
+            Riwayat pencarian akan otomatis tersimpan setiap kali Anda melakukan crawling berita.
+          </p>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────── -->
+      <!-- PAGE: PENGATURAN                             -->
+      <!-- ─────────────────────────────────────────── -->
+      <div id="page-settings" class="hidden max-w-4xl w-full mx-auto px-6 py-6 space-y-6">
+
+        <div>
+          <h2 class="text-base font-semibold text-slate-800 dark:text-white">Pengaturan Sistem</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Konfigurasi parameter crawling dan model AI.</p>
+        </div>
+
+        <div class="space-y-4">
+
+          <!-- Card: Crawling -->
+          <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm dark:shadow-none transition-colors">
+            <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800/60">
+              <svg class="w-4 h-4 text-dkpp-navy dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Pengaturan Crawling</h3>
+            </div>
+            
+            <div class="space-y-1.5 max-w-xs">
+              <label for="setting-max-results" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
+                Maksimal Hasil Pencarian
+              </label>
+              <select id="setting-max-results" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
+                <option value="10">10 Artikel</option>
+                <option value="25">25 Artikel</option>
+                <option value="50">50 Artikel</option>
+                <option value="100">100 Artikel</option>
+              </select>
+              <p class="text-[10px] text-slate-500">Membatasi jumlah berita yang akan diekstrak.</p>
+            </div>
+          </div>
+
+          <!-- Card: AI & Rangkuman -->
+          <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm dark:shadow-none transition-colors">
+            <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800/60">
+              <svg class="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+              </svg>
+              <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Pengaturan AI (Rangkuman)</h3>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div class="space-y-1.5">
+                <label for="setting-ai-model" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
+                  Model AI (HuggingFace)
+                </label>
+                <select id="setting-ai-model" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
+                  <option value="Xenova/distilbart-cnn-12-6">Xenova/distilbart-cnn-12-6 (Default)</option>
+                  <option value="Xenova/bart-large-cnn">Xenova/bart-large-cnn (Akurat tapi lambat)</option>
+                  <option value="Xenova/indobert-base-uncased">Xenova/indobert-base-uncased (Indonesia)</option>
+                </select>
+                <p class="text-[10px] text-slate-500">Model yang digunakan untuk merangkum teks.</p>
+              </div>
+
+              <div class="space-y-1.5">
+                <label for="setting-summary-length" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
+                  Panjang Rangkuman
+                </label>
+                <select id="setting-summary-length" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
+                  <option value="short">Singkat (±2 Kalimat)</option>
+                  <option value="medium">Sedang (±1 Paragraf)</option>
+                  <option value="long">Mendetail (Panjang)</option>
+                </select>
+                <p class="text-[10px] text-slate-500">Target panjang hasil teks AI.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card: Tampilan & Aplikasi -->
+          <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm dark:shadow-none transition-colors">
+            <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800/60">
+              <svg class="w-4 h-4 text-orange-500 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+              </svg>
+              <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Tampilan & Manajemen Data</h3>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div class="space-y-1.5">
+                <label for="setting-theme" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
+                  Tema Aplikasi
+                </label>
+                <select id="setting-theme" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
+                  <option value="light">Terang (Light Mode)</option>
+                  <option value="dark">Gelap (Dark Mode)</option>
+                </select>
+                <p class="text-[10px] text-slate-500">Ubah tampilan aplikasi (Navbar tetap Navy).</p>
+              </div>
+
+              <div class="space-y-1.5 flex flex-col justify-end">
+                <div class="flex items-center justify-between mt-6 pt-1">
+                  <button id="btn-clear-cache" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/15 border border-red-200 dark:border-red-500/15 rounded-lg transition-all">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    Bersihkan Cache & Riwayat
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- FOOTER                                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <footer class="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 py-4 mt-auto transition-colors">
+      <div class="max-w-7xl mx-auto px-6 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-500">
+        <span>&copy; 2026 SIAB DKPP — Sistem Informasi Analisis Berita</span>
+        <span class="flex items-center gap-1">
+          Powered by
+          <span class="text-blue-600 dark:text-blue-500/60 font-medium">Transformers.js</span>
+          &amp;
+          <span class="text-purple-600 dark:text-purple-500/60 font-medium">Electron</span>
+        </span>
+      </div>
+    </footer>
+
+    <!-- Renderer Script -->
+    <script src="renderer.js"></script>
+  </body>
+</html>
