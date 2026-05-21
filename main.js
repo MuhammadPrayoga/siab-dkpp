@@ -3,12 +3,35 @@
 // Electron Main Process: RSS fetching, article extraction, IPC
 // ============================================================
 
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 const RSSParser = require('rss-parser');
+const axios = require('axios');
 const { JSDOM } = require('jsdom');
 const { Readability } = require('@mozilla/readability');
 const db = require('./database');
+
+// ── Stealth Mode: User-Agent Rotation ────────────────────────
+// Daftar User-Agent dari browser sungguhan agar tidak terdeteksi sebagai bot
+
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0',
+  'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0'
+];
+
+function getRandomUserAgent() {
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
+
+// ── Concurrent Crawling Config ───────────────────────────────
+const CONCURRENT_WORKERS = 3; // Jumlah hidden window paralel
+const MAX_RETRIES = 2;        // Percobaan ulang per artikel
 
 let mainWindow;
 
@@ -58,11 +81,32 @@ app.on('window-all-closed', () => {
 
 // ── Google News RSS URL Builder ──────────────────────────────
 
-function buildRssUrl(keyword, dateFrom, dateTo) {
-  // Base query is locked to DKPP-related terms
-  let query = '"DKPP RI" OR "DEWAN KEHORMATAN PENYELENGGARA PEMILU"';
+function buildRssUrl(keyword, dateFrom, dateTo, defaultKeywords) {
+  // Bangun query dasar dari kata kunci bawaan (bisa dikonfigurasi di Pengaturan)
+  // Jika kosong, gunakan default hardcoded
+  const rawKeywords = (defaultKeywords && defaultKeywords.trim())
+    ? defaultKeywords
+    : 'DKPP RI, DEWAN KEHORMATAN PENYELENGGARA PEMILU';
 
-  // Append optional additional keyword
+  // Pecah koma → bungkus tanda kutip → gabungkan dengan OR
+  const keywordParts = rawKeywords
+    .split(',')
+    .map(k => k.trim())
+    .filter(k => k.length > 0)
+    .map(k => `"${k}"`);
+
+  // Pengecualian: web pemerintah + semua platform media sosial
+  const excludedSites = [
+    'go.id',
+    'facebook.com', 'linkedin.com', 'twitter.com', 'x.com',
+    'instagram.com', 'tiktok.com', 'youtube.com', 'reddit.com',
+    'threads.net', 'pinterest.com', 'quora.com', 'tumblr.com'
+  ];
+  const siteExclusions = excludedSites.map(s => `-site:${s}`).join(' ');
+
+  let query = `(${keywordParts.join(' OR ')}) ${siteExclusions}`;
+
+  // Append optional additional keyword from search form
   if (keyword && keyword.trim()) {
     query += ` "${keyword.trim()}"`;
   }
@@ -100,6 +144,57 @@ function extractArticleUrl(item) {
   return item.link;
 }
 
+// ── Fetch & Extract via Axios (Fast Path) ────────────────────
+
+async function extractViaAxios(url, timeoutMs) {
+  try {
+    console.log(`[MAIN] ⚡ Fetching via Axios: ${url}`);
+    const userAgent = getRandomUserAgent();
+    
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': userAgent,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7'
+      },
+      timeout: timeoutMs,
+      maxRedirects: 5,
+      responseType: 'text'
+    });
+
+    const html = response.data;
+    if (!html || html.length < 500) {
+      console.log(`[MAIN] ⚠ Axios HTML too short or empty for: ${url}`);
+      return null;
+    }
+
+    const dom = new JSDOM(html, { url });
+    const reader = new Readability(dom.window.document);
+    const article = reader.parse();
+
+    if (article && article.textContent) {
+      const cleanText = article.textContent
+        .replace(/\t/g, ' ')
+        .replace(/ {2,}/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+      
+      // Deteksi anti-bot (teks terlalu pendek biasanya captcha/blocker)
+      if (cleanText.length < 250) {
+         console.log(`[MAIN] ⚠ Axios extracted text too short (possible bot protection) for: ${url}`);
+         return null;
+      }
+      
+      console.log(`[MAIN] ⚡ Axios success: Extracted ${cleanText.length} chars`);
+      return cleanText;
+    }
+    return null;
+  } catch (error) {
+    console.log(`[MAIN] ⚠ Axios failed for ${url}: ${error.message}`);
+    return null;
+  }
+}
+
 // ── Fetch & Extract Clean Text from Article ──────────────────
 
 async function extractArticleText(url, hiddenWindow, timeout = 25000) {
@@ -108,6 +203,10 @@ async function extractArticleText(url, hiddenWindow, timeout = 25000) {
     
     let resolved = false;
     let timeoutId;
+
+    // Stealth: Set User-Agent acak agar terlihat seperti browser sungguhan
+    const userAgent = getRandomUserAgent();
+    hiddenWindow.webContents.setUserAgent(userAgent);
 
     const cleanup = () => {
       hiddenWindow.webContents.removeAllListeners('did-stop-loading');
@@ -175,6 +274,58 @@ async function extractArticleText(url, hiddenWindow, timeout = 25000) {
   });
 }
 
+// ── Retry Logic: Coba ulang jika gagal ───────────────────────
+
+async function extractWithRetry(url, hiddenWindow, timeout = 25000) {
+  // 1. Coba fast path (Axios) terlebih dahulu
+  let result = await extractViaAxios(url, timeout);
+  if (result) return result;
+
+  console.log(`[MAIN] 🌐 Fallback: Fetching via Browser for: ${url}`);
+
+  // 2. Jika gagal, coba fallback browser dengan retry
+  for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+    result = await extractArticleText(url, hiddenWindow, timeout);
+    
+    if (result) {
+      if (attempt > 1) {
+        console.log(`[MAIN] ✓ Berhasil pada percobaan ke-${attempt}: ${url}`);
+      }
+      return result;
+    }
+
+    if (attempt <= MAX_RETRIES) {
+      const delay = attempt * 1500; // Delay bertambah: 1.5s, 3s
+      console.log(`[MAIN] ✗ Percobaan ke-${attempt} gagal, retry dalam ${delay}ms: ${url}`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  console.warn(`[MAIN] ✗ Semua percobaan gagal untuk: ${url}`);
+  return null;
+}
+
+// ── Worker Pool: Buat & kelola hidden windows ────────────────
+
+function createHiddenWindow() {
+  return new BrowserWindow({
+    show: false,
+    webPreferences: {
+      offscreen: true,
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+}
+
+function destroyHiddenWindows(windows) {
+  for (const win of windows) {
+    if (win && !win.isDestroyed()) {
+      win.destroy();
+    }
+  }
+}
+
 // ── Extract source name from RSS item ────────────────────────
 
 function extractSource(item) {
@@ -213,14 +364,14 @@ function formatDate(dateString) {
 // ── IPC Handler: Start Crawling ──────────────────────────────
 
 ipcMain.handle('start-crawl', async (event, params) => {
-  const { keyword, dateFrom, dateTo } = params;
+  const { keyword, dateFrom, dateTo, defaultKeywords } = params;
 
   console.log('═══════════════════════════════════════════════');
   console.log('[MAIN] START CRAWL');
   console.log('[MAIN] Params:', JSON.stringify(params, null, 2));
   console.log('═══════════════════════════════════════════════');
 
-  const rssUrl = buildRssUrl(keyword, dateFrom, dateTo);
+  const rssUrl = buildRssUrl(keyword, dateFrom, dateTo, defaultKeywords);
 
   try {
     // ── Step 1: Fetch RSS Feed ──
@@ -256,68 +407,117 @@ ipcMain.handle('start-crawl', async (event, params) => {
       };
     }
 
-    // ── Step 2: Extract Each Article ──
+    // ── Step 2: Extract Each Article (Concurrent + Retry) ──
     const articles = [];
     const maxResults = params.maxResults || 50;
-    const totalItems = Math.min(feed.items.length, maxResults);
 
-    // Create a hidden window to handle Google News JS redirects
-    const hiddenWindow = new BrowserWindow({
-      show: false,
-      webPreferences: {
-        offscreen: true,
-        nodeIntegration: false,
-        contextIsolation: true
-      }
-    });
+    // ── Daftar Putih Media (Whitelist) ──
+    const TRUSTED_MEDIA = [
+      'kompas.com', 'detik.com', 'antaranews.com', 'tribunnews.com',
+      'cnnindonesia.com', 'cnbcindonesia.com', 'tempo.co', 'viva.co.id',
+      'suara.com', 'liputan6.com', 'merdeka.com', 'republika.co.id',
+      'idntimes.com', 'tvonenews.com'
+    ];
 
-    for (let i = 0; i < totalItems; i++) {
+    // Siapkan daftar task (artikel yang harus di-crawl) dengan memfilter media terpercaya jika aktif
+    const tasks = [];
+    for (let i = 0; i < feed.items.length && tasks.length < maxResults; i++) {
       const item = feed.items[i];
       const source = extractSource(item);
+      const articleUrl = extractArticleUrl(item);
 
-      // Remove source suffix from title
+      if (params.trustedMediaOnly) {
+        let isTrusted = false;
+        const lowerUrl = articleUrl.toLowerCase();
+        for (const domain of TRUSTED_MEDIA) {
+          if (lowerUrl.includes(domain)) {
+            isTrusted = true;
+            break;
+          }
+        }
+        if (!isTrusted) {
+          console.log(`[MAIN] Skipped untrusted source: ${source}`);
+          continue; // Lewati item ini
+        }
+      }
+
       let title = item.title || 'Tanpa Judul';
       if (title.endsWith(` - ${source}`)) {
         title = title.slice(0, -(` - ${source}`).length).trim();
       }
+      tasks.push({ index: tasks.length, item, source, title, articleUrl });
+    }
 
-      sendProgress(
-        'extracting',
-        `Mengekstrak artikel ${i + 1}/${totalItems}: ${title.substring(0, 60)}...`,
-        i + 1,
-        totalItems
-      );
-
-      console.log(`[MAIN] ── Article ${i + 1}/${totalItems} ──`);
-      console.log(`[MAIN] Title: ${title}`);
-
-      const articleUrl = extractArticleUrl(item);
-      const cleanText = await extractArticleText(articleUrl, hiddenWindow, params.timeout || 25000);
-      const formattedDate = formatDate(item.pubDate || item.isoDate);
-
-      const article = {
-        index: i,
-        title: title,
-        source: source,
-        link: articleUrl,
-        date: formattedDate,
-        rawDate: item.pubDate || item.isoDate || '',
-        cleanText: cleanText || '[Gagal mengekstrak teks artikel]',
-        hasText: !!cleanText
+    const filteredTotalItems = tasks.length;
+    
+    // Jika setelah difilter ternyata kosong
+    if (filteredTotalItems === 0) {
+      return {
+        success: true,
+        articles: [],
+        message: 'Tidak ada berita dari media nasional yang ditemukan.'
       };
+    }
 
-      articles.push(article);
+    // Buat pool hidden windows untuk crawling paralel
+    const workerCount = Math.min(CONCURRENT_WORKERS, filteredTotalItems);
+    const hiddenWindows = [];
+    for (let w = 0; w < workerCount; w++) {
+      hiddenWindows.push(createHiddenWindow());
+    }
+    console.log(`[MAIN] Created ${workerCount} concurrent workers for ${filteredTotalItems} tasks`);
 
-      // Rate limiting: small delay between requests
-      if (i < totalItems - 1) {
-        await new Promise(resolve => setTimeout(resolve, params.requestDelay || 800));
+    // Worker function: ambil task dari antrian, proses, ulangi
+    let taskCursor = 0;
+    let completedCount = 0;
+
+    async function worker(hiddenWindow, workerId) {
+      while (taskCursor < tasks.length) {
+        const taskIndex = taskCursor++;
+        const task = tasks[taskIndex];
+
+        sendProgress(
+          'extracting',
+          `Mengekstrak artikel ${taskIndex + 1}/${filteredTotalItems}: ${task.title.substring(0, 60)}...`,
+          ++completedCount,
+          filteredTotalItems
+        );
+
+        console.log(`[MAIN] ── Article ${taskIndex + 1}/${filteredTotalItems} [Worker ${workerId}] ──`);
+        console.log(`[MAIN] Title: ${task.title}`);
+
+        const cleanText = await extractWithRetry(task.articleUrl, hiddenWindow, params.timeout || 25000);
+        const formattedDate = formatDate(task.item.pubDate || task.item.isoDate);
+
+        const article = {
+          index: task.index,
+          title: task.title,
+          source: task.source,
+          link: task.articleUrl,
+          date: formattedDate,
+          rawDate: task.item.pubDate || task.item.isoDate || '',
+          cleanText: cleanText || '[Gagal mengekstrak teks artikel]',
+          hasText: !!cleanText
+        };
+
+        articles.push(article);
+
+        // Rate limiting antar request per worker
+        if (taskCursor < tasks.length) {
+          await new Promise(resolve => setTimeout(resolve, params.requestDelay || 500));
+        }
       }
     }
 
-    // Cleanup hidden window
-    if (!hiddenWindow.isDestroyed()) {
-      hiddenWindow.destroy();
-    }
+    // Jalankan semua worker secara paralel
+    const workerPromises = hiddenWindows.map((win, i) => worker(win, i + 1));
+    await Promise.all(workerPromises);
+
+    // Urutkan kembali artikel berdasarkan index asli
+    articles.sort((a, b) => a.index - b.index);
+
+    // Cleanup semua hidden windows
+    destroyHiddenWindows(hiddenWindows);
 
     // ── Step 3: Return Results ──
     const successCount = articles.filter(a => a.hasText).length;

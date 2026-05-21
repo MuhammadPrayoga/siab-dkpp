@@ -101,6 +101,15 @@ Pastikan Anda sudah menginstal **Node.js** (versi 18 ke atas) di komputer Anda.
      npm start
      ```
 
+### Cara Penggunaan Aplikasi
+
+1. Buka aplikasi dan atur preferensi di menu **Pengaturan** (Maks Hasil, Batas Waktu, Jeda Antar Request).
+2. Di halaman utama, masukkan **kata kunci** tambahan (opsional) dan pilih **rentang waktu** berita (tanggal awal & akhir).
+3. Klik tombol **"Mulai Crawling"** untuk memulai proses pengambilan berita secara otomatis.
+4. Anda dapat memantau proses secara *real-time* melalui **Terminal Log**.
+5. Setelah selesai, rangkuman berita akan ditampilkan. Klik **"Export CSV"** untuk mengunduh hasil dalam format `.csv` (kompatibel dengan Excel).
+6. Akses tab **"Riwayat"** untuk melihat riwayat pencarian dan ekstraksi sebelumnya.
+
 > [!NOTE]
 > Tidak ada model AI yang perlu diunduh. Seluruh proses rangkuman dilakukan secara algoritmik dan berjalan instan tanpa koneksi internet tambahan setelah berita berhasil di-*crawl*.
 

@@ -40,7 +40,9 @@ function initDatabase() {
       theme: 'light',
       timeout: 25000,
       requestDelay: 800,
-      maxHistory: 100
+      maxHistory: 100,
+      trustedMediaOnly: false,
+      defaultKeywords: 'DKPP RI, DEWAN KEHORMATAN PENYELENGGARA PEMILU'
     }
   }).write();
 

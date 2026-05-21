@@ -25,7 +25,9 @@
     theme: 'light',
     timeout: 25000,
     requestDelay: 800,
-    maxHistory: 100
+    maxHistory: 100,
+    trustedMediaOnly: false,
+    defaultKeywords: 'DKPP RI, DEWAN KEHORMATAN PENYELENGGARA PEMILU'
   };
 
   // ── DOM References ───────────────────────────────────────────
@@ -74,6 +76,8 @@
     settingTimeout: document.getElementById('setting-timeout'),
     settingRequestDelay: document.getElementById('setting-request-delay'),
     settingMaxHistory: document.getElementById('setting-max-history'),
+    settingTrustedMedia: document.getElementById('setting-trusted-media'),
+    settingDefaultKeywords: document.getElementById('setting-default-keywords'),
     btnClearCache: document.getElementById('btn-clear-cache'),
 
     // About section
@@ -85,6 +89,14 @@
     logTerminal: document.getElementById('log-terminal'),
     btnCopyLogs: document.getElementById('btn-copy-logs'),
     btnClearLogs: document.getElementById('btn-clear-logs'),
+
+    // Pagination elements
+    paginationBar: document.getElementById('pagination-bar'),
+    paginationPerPage: document.getElementById('pagination-per-page'),
+    paginationPrev: document.getElementById('pagination-prev'),
+    paginationNext: document.getElementById('pagination-next'),
+    paginationInfo: document.getElementById('pagination-info'),
+    paginationPageIndicator: document.getElementById('pagination-page-indicator'),
   };
 
   // ── Tab Navigation ──────────────────────────────────────────
@@ -149,6 +161,8 @@
     if (DOM.settingTimeout) DOM.settingTimeout.value = settings.timeout;
     if (DOM.settingRequestDelay) DOM.settingRequestDelay.value = settings.requestDelay;
     if (DOM.settingMaxHistory) DOM.settingMaxHistory.value = settings.maxHistory;
+    if (DOM.settingTrustedMedia) DOM.settingTrustedMedia.checked = settings.trustedMediaOnly;
+    if (DOM.settingDefaultKeywords) DOM.settingDefaultKeywords.value = settings.defaultKeywords || '';
     
     applyTheme();
   }
@@ -159,7 +173,9 @@
       theme: DOM.settingTheme.value,
       timeout: parseInt(DOM.settingTimeout.value, 10),
       requestDelay: parseInt(DOM.settingRequestDelay.value, 10),
-      maxHistory: parseInt(DOM.settingMaxHistory.value, 10)
+      maxHistory: parseInt(DOM.settingMaxHistory.value, 10),
+      trustedMediaOnly: DOM.settingTrustedMedia.checked,
+      defaultKeywords: (DOM.settingDefaultKeywords.value || '').trim()
     };
 
     // Save to persistent database via IPC
@@ -181,9 +197,14 @@
   }
 
   // Attach change listeners to settings inputs
-  [DOM.settingMaxResults, DOM.settingTheme, DOM.settingTimeout, DOM.settingRequestDelay, DOM.settingMaxHistory].forEach(el => {
+  [DOM.settingMaxResults, DOM.settingTheme, DOM.settingTimeout, DOM.settingRequestDelay, DOM.settingMaxHistory, DOM.settingTrustedMedia, DOM.settingDefaultKeywords].forEach(el => {
     if (el) el.addEventListener('change', saveSettings);
   });
+
+  // Save keywords on blur (when user clicks away) so they don't need to press Enter
+  if (DOM.settingDefaultKeywords) {
+    DOM.settingDefaultKeywords.addEventListener('blur', saveSettings);
+  }
 
   if (DOM.btnClearCache) {
     DOM.btnClearCache.addEventListener('click', async () => {
@@ -338,7 +359,9 @@
       dateTo: DOM.dateTo.value || null,
       maxResults: settings.maxResults,
       timeout: settings.timeout,
-      requestDelay: settings.requestDelay
+      requestDelay: settings.requestDelay,
+      trustedMediaOnly: settings.trustedMediaOnly,
+      defaultKeywords: settings.defaultKeywords
     };
 
     console.log('[RENDERER] Starting crawl with params:', params);
@@ -360,7 +383,11 @@
           return;
         }
 
-        // Render table
+        // Render table (reset pagination & sort)
+        currentPage = 1;
+        currentSortColumn = null;
+        currentSortDirection = 'asc';
+        updateSortArrows();
         renderTable(articles);
 
         // Save to history (initial, without snippets)
@@ -393,17 +420,163 @@
     }
   });
 
-  // ── Render Results Table ─────────────────────────────────────
+  // ── Render Results Table + Pagination + Sorting ──────────────
+
+  // Sort state
+  let currentSortColumn = null;
+  let currentSortDirection = 'asc';
+
+  // Pagination state
+  let currentPage = 1;
+  let perPage = 25;
+
+  function sortArticles(articleList, column, direction) {
+    const sorted = [...articleList];
+    sorted.sort((a, b) => {
+      let valA, valB;
+      switch (column) {
+        case 'title':
+          valA = (a.title || '').toLowerCase();
+          valB = (b.title || '').toLowerCase();
+          break;
+        case 'source':
+          valA = (a.source || '').toLowerCase();
+          valB = (b.source || '').toLowerCase();
+          break;
+        case 'date':
+          valA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+          valB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+          break;
+        case 'status':
+          valA = a.hasText ? 1 : 0;
+          valB = b.hasText ? 1 : 0;
+          break;
+        default:
+          return 0;
+      }
+      if (valA < valB) return direction === 'asc' ? -1 : 1;
+      if (valA > valB) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }
+
+  function getDisplayArticles() {
+    let list = [...articles];
+    if (currentSortColumn) {
+      list = sortArticles(list, currentSortColumn, currentSortDirection);
+    }
+    return list;
+  }
+
+  function updateSortArrows() {
+    document.querySelectorAll('th[data-sort] .sort-arrow').forEach(arrow => {
+      arrow.style.opacity = '0';
+      arrow.textContent = '▲';
+    });
+    if (currentSortColumn) {
+      const activeHeader = document.querySelector(`th[data-sort="${currentSortColumn}"] .sort-arrow`);
+      if (activeHeader) {
+        activeHeader.style.opacity = '1';
+        activeHeader.textContent = currentSortDirection === 'asc' ? '▲' : '▼';
+      }
+    }
+  }
+
+  function refreshTableView() {
+    const allSorted = getDisplayArticles();
+    renderTable(allSorted);
+    reapplySnippets();
+  }
+
+  function reapplySnippets() {
+    for (const [key, value] of Object.entries(snippets)) {
+      const cell = document.getElementById(`summary-cell-${key}`);
+      if (cell && value) {
+        cell.textContent = value;
+      }
+    }
+  }
+
+  // Attach click handlers to sortable headers
+  document.querySelectorAll('th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const column = th.getAttribute('data-sort');
+      if (currentSortColumn === column) {
+        currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSortColumn = column;
+        currentSortDirection = 'asc';
+      }
+      updateSortArrows();
+      currentPage = 1;
+      if (articles.length > 0) refreshTableView();
+    });
+  });
+
+  // ── Pagination Controls ──────────────────────────────────────
+
+  function updatePaginationUI(totalItems) {
+    const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    const startItem = (currentPage - 1) * perPage + 1;
+    const endItem = Math.min(currentPage * perPage, totalItems);
+
+    DOM.paginationBar.classList.remove('hidden');
+    DOM.paginationInfo.textContent = `Menampilkan ${startItem}–${endItem} dari ${totalItems} artikel`;
+    DOM.paginationPageIndicator.textContent = `Hal ${currentPage} / ${totalPages}`;
+    DOM.paginationPrev.disabled = currentPage <= 1;
+    DOM.paginationNext.disabled = currentPage >= totalPages;
+  }
+
+  if (DOM.paginationPerPage) {
+    DOM.paginationPerPage.addEventListener('change', () => {
+      perPage = parseInt(DOM.paginationPerPage.value, 10);
+      currentPage = 1;
+      if (articles.length > 0) refreshTableView();
+    });
+  }
+
+  if (DOM.paginationPrev) {
+    DOM.paginationPrev.addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        refreshTableView();
+        DOM.resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
+
+  if (DOM.paginationNext) {
+    DOM.paginationNext.addEventListener('click', () => {
+      const totalPages = Math.ceil(articles.length / perPage);
+      if (currentPage < totalPages) {
+        currentPage++;
+        refreshTableView();
+        DOM.resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
+
+  // ── Render Table (paginated) ─────────────────────────────────
 
   function renderTable(articleList) {
     DOM.resultsSection.classList.remove('hidden');
     DOM.emptyState.classList.add('hidden');
     DOM.articleCount.textContent = `${articleList.length} artikel`;
 
+    // Paginate: slice only the current page
+    const startIndex = (currentPage - 1) * perPage;
+    const pageItems = articleList.slice(startIndex, startIndex + perPage);
+
+    updatePaginationUI(articleList.length);
+
     const tbody = DOM.resultsTableBody;
     tbody.innerHTML = '';
 
-    articleList.forEach((article, i) => {
+    pageItems.forEach((article, i) => {
+      const globalIndex = startIndex + i; // for display numbering
       const row = document.createElement('tr');
       row.className = `table-row-hover ${i % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800/40' : 'bg-white dark:bg-slate-900/40'} animate-fade-in`;
       row.style.animationDelay = `${i * 0.04}s`;
@@ -413,7 +586,7 @@
         : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-500/20">Gagal</span>';
 
       row.innerHTML = `
-        <td class="px-4 py-3 text-xs text-slate-600 dark:text-slate-400 font-mono">${i + 1}</td>
+        <td class="px-4 py-3 text-xs text-slate-600 dark:text-slate-400 font-mono">${globalIndex + 1}</td>
         <td class="px-4 py-3">
           <a href="${escapeHtml(article.link)}"
              target="_blank"
