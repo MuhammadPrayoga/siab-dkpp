@@ -42,7 +42,13 @@ function initDatabase() {
       requestDelay: 800,
       maxHistory: 100,
       trustedMediaOnly: false,
-      defaultKeywords: 'DKPP RI, DEWAN KEHORMATAN PENYELENGGARA PEMILU'
+      defaultKeywords: 'DKPP RI, DEWAN KEHORMATAN PENYELENGGARA PEMILU',
+      trustedMediaDomains: [
+        'kompas.com', 'detik.com', 'antaranews.com', 'tribunnews.com',
+        'cnnindonesia.com', 'cnbcindonesia.com', 'tempo.co', 'viva.co.id',
+        'suara.com', 'liputan6.com', 'merdeka.com', 'republika.co.id',
+        'idntimes.com', 'tvonenews.com'
+      ]
     }
   }).write();
 

@@ -49,7 +49,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
       zoomFactor: 1.0
     },
     titleBarStyle: 'default',
@@ -171,6 +171,7 @@ async function extractViaAxios(url, timeoutMs) {
     const dom = new JSDOM(html, { url });
     const reader = new Readability(dom.window.document);
     const article = reader.parse();
+    dom.window.close(); // Mencegah memory leak JSDOM
 
     if (article && article.textContent) {
       const cleanText = article.textContent
@@ -223,6 +224,7 @@ async function extractArticleText(url, hiddenWindow, timeout = 25000) {
 
     timeoutId = setTimeout(() => {
       console.warn(`[MAIN] Timeout fetching: ${url}`);
+      hiddenWindow.webContents.stop(); // Hentikan loading agar tidak membuang resource
       finish(null);
     }, timeout);
 
@@ -249,6 +251,7 @@ async function extractArticleText(url, hiddenWindow, timeout = 25000) {
         const dom = new JSDOM(html, { url: currentUrl });
         const reader = new Readability(dom.window.document);
         const article = reader.parse();
+        dom.window.close(); // Mencegah memory leak JSDOM
 
         if (article && article.textContent) {
           const cleanText = article.textContent
@@ -412,12 +415,16 @@ ipcMain.handle('start-crawl', async (event, params) => {
     const maxResults = params.maxResults || 50;
 
     // ── Daftar Putih Media (Whitelist) ──
-    const TRUSTED_MEDIA = [
+    const DEFAULT_TRUSTED_MEDIA = [
       'kompas.com', 'detik.com', 'antaranews.com', 'tribunnews.com',
       'cnnindonesia.com', 'cnbcindonesia.com', 'tempo.co', 'viva.co.id',
       'suara.com', 'liputan6.com', 'merdeka.com', 'republika.co.id',
       'idntimes.com', 'tvonenews.com'
     ];
+    // Gunakan daftar dari pengaturan jika tersedia, fallback ke default
+    const TRUSTED_MEDIA = (params.trustedMediaDomains && params.trustedMediaDomains.length > 0)
+      ? params.trustedMediaDomains
+      : DEFAULT_TRUSTED_MEDIA;
 
     // Siapkan daftar task (artikel yang harus di-crawl) dengan memfilter media terpercaya jika aktif
     const tasks = [];
