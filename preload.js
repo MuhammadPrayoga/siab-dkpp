@@ -66,6 +66,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /** Get application info (version, Electron version, database path) */
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
 
+  // ── Summarization (offloaded to Main Process) ─────────────────
+
+  /** Generate extractive summary of text (runs in main process to avoid UI freeze) */
+  generateSummary: (text) => ipcRenderer.invoke('generate-summary', text),
+
   // ── Migration ────────────────────────────────────────────────
 
   /** Migrate localStorage data to persistent database (one-time) */

@@ -5,17 +5,21 @@
   "main": "main.js",
   "scripts": {
     "start": "electron . --no-sandbox --disable-dev-shm-usage",
-    "dev": "electron . --enable-logging"
+    "dev": "electron . --enable-logging",
+    "build:css": "tailwindcss -i ./src/input.css -o ./public/output.css --minify",
+    "watch:css": "tailwindcss -i ./src/input.css -o ./public/output.css --watch"
   },
   "dependencies": {
     "@mozilla/readability": "^0.5.0",
-    "axios": "^1.7.9",
+    "flatpickr": "^4.6.13",
+    "got-scraping": "^4.0.0",
     "jsdom": "^24.1.0",
     "lowdb": "^1.0.0",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {
-    "electron": "^30.1.0"
+    "electron": "^30.1.0",
+    "tailwindcss": "^3.4.0"
   },
   "author": "SIAB DKPP",
   "license": "MIT"

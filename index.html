@@ -7,8 +7,8 @@
       http-equiv="Content-Security-Policy"
       content="
         default-src 'self' 'unsafe-inline' 'unsafe-eval';
-        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net;
-        style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' https://fonts.gstatic.com;
         connect-src *;
         worker-src 'self' blob: https://cdn.jsdelivr.net;
@@ -18,8 +18,11 @@
     />
     <title>SIAB DKPP — Sistem Informasi Agregator Berita</title>
 
-    <!-- Tailwind CSS via CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="./node_modules/flatpickr/dist/flatpickr.min.css">
+    
+    <!-- Tailwind CSS (Local Build) -->
+    <link href="public/output.css" rel="stylesheet" />
 
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -28,25 +31,6 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-
-    <script>
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ["Inter", "system-ui", "sans-serif"],
-            },
-            colors: {
-              dkpp: {
-                navy: '#000066',
-                gold: '#FFD700',
-              }
-            }
-          },
-        },
-      };
-    </script>
 
     <style>
       /* ── Scrollbar ────────────────────────────────── */
@@ -59,7 +43,7 @@
 
       /* ── Animations ───────────────────────────────── */
       @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(6px); }
+        from { opacity: 0; transform: translateY(10px); }
         to   { opacity: 1; transform: translateY(0); }
       }
       @keyframes shimmer {
@@ -69,85 +53,133 @@
       @keyframes spin-slow {
         to { transform: rotate(360deg); }
       }
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+      }
 
       .animate-fade-in {
-        animation: fadeIn 0.3s ease-out forwards;
+        animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
       .spin-slow {
         animation: spin-slow 2s linear infinite;
       }
 
-      /* ── Navigation Tabs ──────────────────────────── */
+      /* ── Navigation Tabs (Pill Style) ──────────────── */
       .nav-tab {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.625rem 1rem;
+        gap: 0.375rem;
+        padding: 0.5rem 1rem;
         font-size: 0.8125rem;
-        font-weight: 500;
-        color: rgba(255, 215, 0, 0.7); /* Faded Gold */
-        border-bottom: 2px solid transparent;
-        background: none;
-        border-top: none;
-        border-left: none;
-        border-right: none;
-        cursor: pointer;
+        font-weight: 600;
+        color: #cbd5e1;
+        border-radius: 0.5rem;
+        transition: all 0.2s ease;
+        background: transparent;
+        border: none;
         outline: none;
-        transition: color 0.15s, border-color 0.15s;
+        cursor: pointer;
       }
-      .nav-tab:hover { color: #FFD700; }
+      .nav-tab:hover {
+        color: #ffffff;
+        background-color: rgba(255, 255, 255, 0.15);
+      }
       .nav-tab.active {
-        color: #FFD700;
-        border-bottom-color: #FFD700;
+        color: #FFD700; /* dkpp-gold */
+        background-color: rgba(255, 255, 255, 0.1);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       }
 
       /* ── Progress Bar Fill ────────────────────────── */
       .progress-fill {
-        transition: width 0.4s ease-in-out;
-        background: linear-gradient(90deg, #3b82f6, #60a5fa, #3b82f6);
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        background: linear-gradient(90deg, #000066, #FFD700, #000066);
         background-size: 200% 100%;
-        animation: shimmer 2s infinite;
+        animation: shimmer 2.5s linear infinite;
       }
 
       /* ── Table Row Hover ──────────────────────────── */
-      .table-row-hover { transition: background-color 0.15s ease; }
+      .table-row-hover { transition: all 0.2s ease; }
       .table-row-hover:hover {
-        background-color: #f1f5f9 !important;
+        background-color: rgba(255,255,255, 0.8) !important;
+        transform: scale(1.002);
       }
       .dark .table-row-hover:hover {
-        background-color: rgba(51, 65, 85, 0.3) !important;
+        background-color: rgba(30, 41, 59, 0.6) !important;
+      }
+
+      /* ── Flatpickr Dark Mode Overrides ────────────── */
+      .dark .flatpickr-calendar {
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(12px);
+        border-color: #334155;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+      }
+      .dark .flatpickr-calendar.arrowTop:before { border-bottom-color: #334155; }
+      .dark .flatpickr-calendar.arrowTop:after { border-bottom-color: #0f172a; }
+      .dark .flatpickr-calendar.arrowBottom:before { border-top-color: #334155; }
+      .dark .flatpickr-calendar.arrowBottom:after { border-top-color: #0f172a; }
+      .dark .flatpickr-day { color: #cbd5e1; }
+      .dark .flatpickr-day.disabled, .dark .flatpickr-day.disabled:hover { color: #475569; }
+      .dark .flatpickr-day:hover, .dark .flatpickr-day:focus { background: #334155; border-color: #334155; color: #f8fafc; }
+      .dark .flatpickr-day.selected { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+      .dark .flatpickr-months .flatpickr-month { color: #f8fafc; fill: #f8fafc; }
+      .dark .flatpickr-current-month .flatpickr-monthDropdown-months { background: #0f172a; }
+      .dark .flatpickr-weekday { color: #94a3b8; }
+      .dark .flatpickr-time input { color: #f8fafc; }
+      .dark .flatpickr-time .flatpickr-am-pm { color: #f8fafc; }
+      .dark span.flatpickr-weekday { color: #94a3b8; }
+
+      /* Custom Glass Panels */
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 0 10px 40px -10px rgba(0,0,0,0.05);
+      }
+      .dark .glass-panel {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
       }
     </style>
   </head>
 
-  <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans min-h-screen flex flex-col transition-colors duration-300">
+  <body class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100 font-sans min-h-screen flex flex-col transition-colors duration-500 relative overflow-x-hidden">
+    
+    <!-- Decorative background blobs -->
+    <div class="fixed top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-dkpp-navy/10 dark:bg-dkpp-navy/20 rounded-full blur-3xl pointer-events-none mix-blend-multiply dark:mix-blend-screen" style="animation: float 15s infinite ease-in-out"></div>
+    <!-- Removed gold right blob as requested -->
 
     <!-- ═══════════════════════════════════════════════ -->
     <!-- HEADER                                         -->
     <!-- ═══════════════════════════════════════════════ -->
-    <header class="bg-dkpp-navy shadow-md">
+    <header class="relative z-20 bg-dkpp-navy border-b border-dkpp-gold/30 shadow-md mb-6">
       <div class="max-w-7xl mx-auto px-6">
         <!-- Top bar: Logo + Title + AI Status -->
-        <div class="flex items-center justify-between py-3.5">
-          <div class="flex items-center gap-3">
-            <img
-              src="public/logo_dkpp.png"
-              alt="Logo DKPP RI"
-              class="w-10 h-10 object-contain"
-            />
+        <div class="flex items-center justify-between py-4">
+          <div class="flex items-center gap-3.5">
+            <div class="flex items-center justify-center relative group">
+              <img
+                src="public/logo_dkpp.png"
+                alt="Logo DKPP RI"
+                class="w-10 h-10 object-contain relative z-10 drop-shadow-md transition-transform group-hover:scale-105"
+              />
+            </div>
             <div>
-              <h1 class="text-lg font-bold tracking-tight">
-                <span class="text-white">SIAB</span>
-                <span class="text-dkpp-gold ml-0.5">DKPP</span>
+              <h1 class="text-xl font-extrabold tracking-tight">
+                <span class="text-white">SIAB</span> <span class="text-dkpp-gold">DKPP</span>
               </h1>
-              <p class="text-[11px] text-blue-200 font-medium tracking-wide">
-                Sistem Informasi Agregator Berita — DKPP RI
+              <p class="text-[10px] text-dkpp-gold font-bold tracking-widest uppercase mt-0.5 opacity-90">
+                Sistem Informasi Agregator Berita
               </p>
             </div>
           </div>
 
         <!-- Navigation Tabs -->
-        <nav class="flex gap-0.5 -mb-px">
+        <nav class="flex p-1 bg-blue-950/40 rounded-xl border border-white/10 backdrop-blur-md gap-1 shadow-inner">
           <button id="nav-tab-crawl" class="nav-tab active">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -178,60 +210,76 @@
     <!-- ═══════════════════════════════════════════════ -->
     <!-- MAIN CONTENT                                   -->
     <!-- ═══════════════════════════════════════════════ -->
-    <main class="flex-1">
+    <main class="flex-1 relative z-10 w-full">
 
       <!-- ─────────────────────────────────────────── -->
       <!-- PAGE: CRAWLING                               -->
       <!-- ─────────────────────────────────────────── -->
-      <div id="page-crawl" class="max-w-7xl w-full mx-auto px-6 py-6 space-y-5">
+      <div id="page-crawl" class="max-w-7xl w-full mx-auto px-6 pb-10 space-y-6">
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           
           <!-- LEFT COLUMN: Search & Progress -->
-          <div class="lg:col-span-2 space-y-5">
+          <div class="lg:col-span-2 space-y-6">
             <!-- Search / Filter Form -->
-            <section class="animate-fade-in">
-              <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm dark:shadow-none transition-colors">
-                <div class="flex items-center gap-2 mb-4">
-                  <svg class="w-4 h-4 text-dkpp-navy dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                  </svg>
-                  <h2 class="text-sm font-semibold text-slate-800 dark:text-white">Parameter Pencarian</h2>
+            <section class="animate-fade-in" style="animation-delay: 0.1s;">
+              <div class="glass-panel rounded-2xl p-6">
+                <div class="flex items-center gap-2 mb-5 pb-4 border-b border-slate-200/50 dark:border-slate-700/50">
+                  <div class="w-8 h-8 rounded-lg bg-dkpp-navy/10 dark:bg-dkpp-navy/30 flex items-center justify-center text-dkpp-navy dark:text-dkpp-gold">
+                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                     </svg>
+                  </div>
+                  <h2 class="text-base font-semibold text-slate-800 dark:text-white">Parameter Pencarian</h2>
                 </div>
 
-                <form id="crawl-form" class="space-y-4">
+                <form id="crawl-form" class="space-y-5">
                   <!-- Keyword -->
-                  <div class="space-y-1.5">
-                    <label for="keyword-input" class="block text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                      Masukkan Pencarian
+                  <div class="space-y-2">
+                    <label for="keyword-input" class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                      Kata Kunci Tambahan
                     </label>
-                    <input type="text" id="keyword-input" placeholder="Contoh: pelanggaran etik" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all" />
+                    <input type="text" id="keyword-input" placeholder="Contoh: pelanggaran etik, sengketa pemilu..." class="w-full px-4 py-3 bg-white/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700/50 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-dkpp-navy/50 focus:border-dkpp-navy/50 dark:focus:ring-dkpp-gold/50 dark:focus:border-dkpp-gold/50 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-inner" />
                   </div>
 
                   <!-- Dates Row -->
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <!-- Date From -->
-                    <div class="space-y-1.5">
-                      <label for="date-from" class="block text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                    <div class="space-y-2">
+                      <label for="date-from" class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                         Dari Tanggal
                       </label>
-                      <input type="date" id="date-from" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all [color-scheme:light] dark:[color-scheme:dark]" />
+                      <div class="relative group">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                          <svg class="w-4 h-4 text-slate-400 group-focus-within:text-dkpp-navy dark:group-focus-within:text-dkpp-gold transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                          </svg>
+                        </div>
+                        <input type="text" id="date-from" placeholder="Pilih tanggal awal..." class="w-full pl-11 pr-4 py-3 bg-white/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700/50 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-dkpp-navy/50 dark:focus:ring-dkpp-gold/50 focus:border-dkpp-navy/50 dark:focus:border-dkpp-gold/50 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-inner cursor-pointer" />
+                      </div>
                     </div>
 
                     <!-- Date To -->
-                    <div class="space-y-1.5">
-                      <label for="date-to" class="block text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                    <div class="space-y-2">
+                      <label for="date-to" class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                         Sampai Tanggal
                       </label>
-                      <input type="date" id="date-to" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all [color-scheme:light] dark:[color-scheme:dark]" />
+                      <div class="relative group">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                          <svg class="w-4 h-4 text-slate-400 group-focus-within:text-dkpp-navy dark:group-focus-within:text-dkpp-gold transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                          </svg>
+                        </div>
+                        <input type="text" id="date-to" placeholder="Pilih tanggal akhir..." class="w-full pl-11 pr-4 py-3 bg-white/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700/50 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-dkpp-navy/50 dark:focus:ring-dkpp-gold/50 focus:border-dkpp-navy/50 dark:focus:border-dkpp-gold/50 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-inner cursor-pointer" />
+                      </div>
                     </div>
                   </div>
 
                   <!-- Submit Row -->
-                  <div class="flex items-center justify-end pt-1">
-                    <button type="submit" id="crawl-btn" class="inline-flex items-center gap-2 px-5 py-2.5 bg-dkpp-navy dark:bg-blue-600 hover:bg-blue-900 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  <div class="flex items-center justify-end pt-3">
+                    <button type="submit" id="crawl-btn" class="inline-flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-dkpp-navy to-dkpp-navy/90 dark:from-dkpp-gold dark:to-yellow-500 dark:text-slate-900 border border-dkpp-gold/30 hover:border-dkpp-gold text-white text-sm font-semibold rounded-xl shadow-lg shadow-dkpp-navy/30 transition-all hover:-translate-y-0.5 hover:shadow-dkpp-gold/20 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:shadow-none">
                       <svg id="crawl-btn-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                       </svg>
                       <svg id="crawl-btn-spinner" class="w-4 h-4 hidden spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -245,17 +293,17 @@
 
             <!-- Progress Section (hidden) -->
             <section id="progress-section" class="hidden animate-fade-in">
-              <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm dark:shadow-none transition-colors">
-                <div class="flex items-center gap-3 mb-3">
-                  <div class="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
-                    <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="glass-panel rounded-2xl p-5">
+                <div class="flex items-center gap-3 mb-4">
+                  <div class="w-8 h-8 rounded-lg bg-dkpp-navy/10 dark:bg-dkpp-navy/30 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-dkpp-navy dark:text-dkpp-gold spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                     </svg>
                   </div>
-                  <p id="progress-message" class="text-sm text-slate-700 dark:text-slate-300 flex-1">Memulai proses...</p>
-                  <span id="progress-counter" class="text-xs text-slate-500 font-mono"></span>
+                  <p id="progress-message" class="text-sm font-medium text-slate-700 dark:text-slate-300 flex-1">Memulai proses...</p>
+                  <span id="progress-counter" class="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700"></span>
                 </div>
-                <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div class="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
                   <div id="progress-bar" class="h-full progress-fill rounded-full" style="width: 0%"></div>
                 </div>
               </div>
@@ -264,25 +312,27 @@
 
           <!-- RIGHT COLUMN: System Log -->
           <div class="lg:col-span-1">
-            <section id="log-section" class="animate-fade-in h-full">
-              <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm dark:shadow-none transition-colors flex flex-col h-full">
+            <section id="log-section" class="animate-fade-in h-full" style="animation-delay: 0.2s;">
+              <div class="bg-white/80 dark:bg-slate-950/90 backdrop-blur-2xl border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[320px] relative group transition-all">
                 <!-- Log header -->
-                <div class="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800/60 flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <h3 class="text-xs font-semibold text-slate-800 dark:text-white uppercase tracking-wider">Konsol Log</h3>
+                <div class="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-slate-400/50 to-transparent opacity-50"></div>
+                
+                <div class="px-5 py-3.5 bg-slate-100/50 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800/60 flex items-center justify-between">
+                  <div class="flex items-center gap-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-slate-400 dark:bg-slate-500 animate-pulse"></span>
+                    <h3 class="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-widest opacity-90">Konsol Sistem</h3>
                   </div>
                   <div class="flex items-center gap-2">
-                    <button type="button" id="btn-copy-logs" class="px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-md transition-all">
+                    <button type="button" id="btn-copy-logs" class="px-2.5 py-1 text-[10px] font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/50 rounded-md transition-all">
                       Salin
                     </button>
-                    <button type="button" id="btn-clear-logs" class="px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-md transition-all">
-                      Bersihkan
+                    <button type="button" id="btn-clear-logs" class="px-2.5 py-1 text-[10px] font-semibold text-slate-600 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/50 rounded-md transition-all">
+                      Hapus
                     </button>
                   </div>
                 </div>
                 <!-- Log output terminal viewport -->
-                <div id="log-terminal" class="p-3 bg-slate-950 h-[225px] overflow-y-auto font-mono text-[10px] leading-relaxed select-text scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                <div id="log-terminal" class="p-4 bg-transparent h-full overflow-y-auto font-mono text-[11px] leading-relaxed select-text text-slate-700 dark:text-slate-300 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
                   <div class="text-slate-500">[SYSTEM] Siap menerima perintah pencarian. Silakan masukkan parameter pencarian.</div>
                 </div>
               </div>
@@ -291,82 +341,84 @@
 
         </div>
         <!-- Results Section (hidden) -->
-        <section id="results-section" class="hidden animate-fade-in">
-          <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm dark:shadow-none transition-colors">
+        <section id="results-section" class="hidden animate-fade-in" style="animation-delay: 0.3s;">
+          <div class="glass-panel rounded-2xl overflow-hidden">
             <!-- Results header -->
-            <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <div class="flex items-center gap-2.5">
-                <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                <h2 class="text-sm font-semibold text-slate-800 dark:text-white">Hasil Analisis</h2>
+            <div class="px-6 py-5 border-b border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between bg-white/30 dark:bg-slate-900/30">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-dkpp-navy/10 dark:bg-dkpp-gold/20 flex items-center justify-center text-dkpp-navy dark:text-dkpp-gold">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                </div>
+                <h2 class="text-base font-bold text-slate-800 dark:text-white">Hasil Analisis</h2>
                 <span id="article-count"
-                  class="text-[11px] font-medium px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20">
+                  class="ml-2 text-xs font-bold px-2.5 py-1 rounded-full bg-dkpp-navy/10 dark:bg-dkpp-gold/10 text-dkpp-navy dark:text-dkpp-gold border border-dkpp-navy/20 dark:border-dkpp-gold/30">
                   0 artikel
                 </span>
               </div>
               <button id="download-csv-btn"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-600/10 hover:bg-emerald-100 dark:hover:bg-emerald-600/20 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium rounded-lg transition-all">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                class="inline-flex items-center gap-2 px-4 py-2 bg-dkpp-navy hover:bg-dkpp-navy/90 dark:bg-dkpp-gold dark:hover:bg-yellow-500 text-white dark:text-slate-900 text-xs font-bold rounded-xl shadow-md shadow-dkpp-navy/20 dark:shadow-dkpp-gold/20 transition-all hover:-translate-y-0.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
-                Download CSV
+                Ekspor CSV
               </button>
             </div>
 
             <!-- Results table -->
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto bg-white/40 dark:bg-slate-900/20">
               <table class="w-full text-sm">
                 <thead>
-                  <tr class="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800/40">
-                    <th class="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-10">#</th>
-                    <th class="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[200px] cursor-pointer hover:text-slate-700 dark:hover:text-slate-300 transition-colors select-none" data-sort="title">
-                      Judul <span class="sort-arrow inline-block ml-0.5 opacity-0">▲</span>
+                  <tr class="bg-slate-100/50 dark:bg-slate-800/40 border-b border-slate-200/60 dark:border-slate-700/60">
+                    <th class="px-5 py-4 text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-10">#</th>
+                    <th class="px-5 py-4 text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider min-w-[200px] cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors group select-none" data-sort="title">
+                      Judul Berita <span class="sort-arrow inline-block ml-1 opacity-0 group-hover:opacity-50 transition-opacity text-dkpp-navy dark:text-dkpp-gold">▲</span>
                     </th>
-                    <th class="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28 cursor-pointer hover:text-slate-700 dark:hover:text-slate-300 transition-colors select-none" data-sort="source">
-                      Sumber <span class="sort-arrow inline-block ml-0.5 opacity-0">▲</span>
+                    <th class="px-5 py-4 text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-32 cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors group select-none" data-sort="source">
+                      Sumber <span class="sort-arrow inline-block ml-1 opacity-0 group-hover:opacity-50 transition-opacity text-dkpp-navy dark:text-dkpp-gold">▲</span>
                     </th>
-                    <th class="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-36 cursor-pointer hover:text-slate-700 dark:hover:text-slate-300 transition-colors select-none" data-sort="date">
-                      Tanggal <span class="sort-arrow inline-block ml-0.5 opacity-0">▲</span>
+                    <th class="px-5 py-4 text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-40 cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors group select-none" data-sort="date">
+                      Waktu Publikasi <span class="sort-arrow inline-block ml-1 opacity-0 group-hover:opacity-50 transition-opacity text-dkpp-navy dark:text-dkpp-gold">▲</span>
                     </th>
-                    <th class="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-16 cursor-pointer hover:text-slate-700 dark:hover:text-slate-300 transition-colors select-none" data-sort="status">
-                      Status <span class="sort-arrow inline-block ml-0.5 opacity-0">▲</span>
+                    <th class="px-5 py-4 text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-20 cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors group select-none" data-sort="status">
+                      Status <span class="sort-arrow inline-block ml-1 opacity-0 group-hover:opacity-50 transition-opacity text-dkpp-navy dark:text-dkpp-gold">▲</span>
                     </th>
-                    <th class="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[220px]">Cuplikan Teks</th>
+                    <th class="px-5 py-4 text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider min-w-[280px]">Cuplikan Ekstraksi Teks</th>
                   </tr>
                 </thead>
-                <tbody id="results-table-body" class="divide-y divide-slate-200 dark:divide-slate-800/40">
+                <tbody id="results-table-body" class="divide-y divide-slate-200/50 dark:divide-slate-700/50">
                   <!-- Rows injected by renderer.js -->
                 </tbody>
               </table>
             </div>
 
             <!-- Pagination Bar -->
-            <div id="pagination-bar" class="hidden px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div id="pagination-bar" class="hidden px-6 py-4 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between bg-white/30 dark:bg-slate-900/30">
               <div class="flex items-center gap-2">
-                <span class="text-[11px] text-slate-500">Tampilkan</span>
-                <select id="pagination-per-page" class="px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
+                <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Tampilkan</span>
+                <select id="pagination-per-page" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-dkpp-navy dark:focus:ring-dkpp-gold/50 transition-all shadow-sm">
                   <option value="10">10</option>
                   <option value="25" selected>25</option>
                   <option value="50">50</option>
                   <option value="100">100</option>
                 </select>
-                <span class="text-[11px] text-slate-500">per halaman</span>
+                <span class="text-xs font-medium text-slate-500 dark:text-slate-400">baris</span>
               </div>
 
-              <div class="flex items-center gap-3">
-                <span id="pagination-info" class="text-[11px] text-slate-500"></span>
-                <div class="flex items-center gap-1">
-                  <button id="pagination-prev" class="px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-md transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                    ◀ Sebelumnya
+              <div class="flex items-center gap-4">
+                <span id="pagination-info" class="text-xs font-medium text-slate-500 dark:text-slate-400"></span>
+                <div class="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <button id="pagination-prev" class="px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-md transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                    ◀ Prev
                   </button>
-                  <span id="pagination-page-indicator" class="px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md min-w-[80px] text-center">
-                    Hal 1 / 1
+                  <span id="pagination-page-indicator" class="px-4 py-1.5 text-xs font-bold text-dkpp-navy dark:text-dkpp-gold bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200/50 dark:border-slate-700/50 text-center min-w-[70px]">
+                    1 / 1
                   </span>
-                  <button id="pagination-next" class="px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-md transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                    Berikutnya ▶
+                  <button id="pagination-next" class="px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 rounded-md transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                    Next ▶
                   </button>
                 </div>
               </div>
@@ -375,78 +427,85 @@
         </section>
 
         <!-- Empty State -->
-        <section id="empty-state" class="animate-fade-in">
-          <div class="flex flex-col items-center justify-center py-20 text-center">
-            <div class="w-16 h-16 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none flex items-center justify-center mb-4 transition-colors">
-              <svg class="w-8 h-8 text-slate-400 dark:text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <section id="empty-state" class="animate-fade-in mt-10">
+          <div class="glass-panel rounded-3xl max-w-lg mx-auto flex flex-col items-center justify-center p-12 text-center border-dashed border-dkpp-navy/20 dark:border-dkpp-gold/20">
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-dkpp-navy/10 to-dkpp-navy/5 dark:from-slate-800 dark:to-slate-700 shadow-inner flex items-center justify-center mb-6 border border-white/50 dark:border-slate-600">
+              <svg class="w-10 h-10 text-dkpp-navy dark:text-dkpp-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
               </svg>
             </div>
-            <h3 class="text-base font-semibold text-slate-800 dark:text-slate-400 mb-1.5">Belum Ada Data</h3>
-            <p class="text-sm text-slate-500 max-w-sm">
-              Gunakan form di atas untuk mencari berita terkait DKPP RI.
-              Sistem akan mengekstrak dan merangkum artikel secara otomatis.
+            <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Belum Ada Data Ditemukan</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
+              Silakan isi form pencarian di atas untuk mulai menarik berita terkait DKPP RI. Sistem akan otomatis menyaring, membaca, dan membuatkan ringkasan.
             </p>
           </div>
         </section>
 
         <!-- Error Alert (hidden) -->
         <section id="error-section" class="hidden animate-fade-in">
-          <div class="bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/15 rounded-xl p-4 shadow-sm dark:shadow-none transition-colors">
-            <div class="flex items-start gap-3">
-              <svg class="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-              </svg>
+          <div class="bg-red-50/90 dark:bg-red-900/20 backdrop-blur-md border border-red-200 dark:border-red-500/30 rounded-2xl p-5 shadow-lg shadow-red-500/5">
+            <div class="flex items-start gap-4">
+              <div class="p-2 bg-red-100 dark:bg-red-500/20 rounded-full mt-0.5">
+                <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                </svg>
+              </div>
               <div>
-                <h4 class="text-sm font-semibold text-red-800 dark:text-red-400 mb-0.5">Terjadi Kesalahan</h4>
-                <p id="error-message" class="text-sm text-red-600 dark:text-red-300/70"></p>
+                <h4 class="text-base font-bold text-red-800 dark:text-red-400 mb-1">Terjadi Kesalahan Sinkronisasi</h4>
+                <p id="error-message" class="text-sm font-medium text-red-600 dark:text-red-300/80 leading-relaxed"></p>
               </div>
             </div>
           </div>
+        </section>
 
       </div>
 
       <!-- ─────────────────────────────────────────── -->
       <!-- PAGE: RIWAYAT                                -->
       <!-- ─────────────────────────────────────────── -->
-      <div id="page-history" class="hidden max-w-7xl w-full mx-auto px-6 py-6 space-y-5">
+      <div id="page-history" class="hidden max-w-6xl w-full mx-auto px-6 pb-10 space-y-6 animate-fade-in">
 
         <!-- History Header -->
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-base font-semibold text-slate-800 dark:text-white">Riwayat Pencarian</h2>
-            <p id="history-count" class="text-xs text-slate-500 mt-0.5">0 riwayat tersimpan</p>
+        <div class="glass-panel p-5 rounded-2xl flex items-center justify-between">
+          <div class="flex items-center gap-4">
+             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-dkpp-navy/10 to-dkpp-navy/5 dark:from-dkpp-gold/20 dark:to-dkpp-gold/10 flex items-center justify-center text-dkpp-navy dark:text-dkpp-gold border border-white/50 dark:border-slate-700">
+               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+               </svg>
+             </div>
+             <div>
+               <h2 class="text-lg font-bold text-slate-800 dark:text-white">Riwayat Pencarian</h2>
+               <p id="history-count" class="text-xs font-semibold text-slate-500 mt-0.5 bg-slate-100 dark:bg-slate-800 inline-block px-2 py-0.5 rounded-md">0 tersimpan</p>
+             </div>
           </div>
           <button
             id="clear-history-btn"
-            class="hidden inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/15 border border-red-200 dark:border-red-500/15 rounded-lg transition-all"
+            class="hidden inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-red-600 dark:text-red-400 hover:text-white bg-red-50 dark:bg-red-500/10 hover:bg-red-500 border border-red-200 dark:border-red-500/20 rounded-xl transition-all shadow-sm"
           >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
             </svg>
-            Hapus Semua
+            Bersihkan Semua
           </button>
         </div>
 
         <!-- History List -->
-        <div id="history-list" class="space-y-3">
+        <div id="history-list" class="space-y-4">
           <!-- Cards rendered by renderer.js -->
         </div>
 
         <!-- History Empty State -->
-        <div id="history-empty-state" class="flex flex-col items-center justify-center py-20 text-center">
-          <div class="w-16 h-16 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none flex items-center justify-center mb-4 transition-colors">
-            <svg class="w-8 h-8 text-slate-400 dark:text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        <div id="history-empty-state" class="glass-panel rounded-3xl max-w-lg mx-auto flex flex-col items-center justify-center p-12 text-center border-dashed mt-10">
+          <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 shadow-inner flex items-center justify-center mb-6 border border-white/50 dark:border-slate-600">
+            <svg class="w-10 h-10 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
           </div>
-          <h3 class="text-base font-semibold text-slate-800 dark:text-slate-400 mb-1.5">Belum Ada Riwayat</h3>
-          <p class="text-sm text-slate-500 max-w-sm">
-            Riwayat pencarian akan otomatis tersimpan setiap kali Anda melakukan crawling berita.
+          <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Jejak Kosong</h3>
+          <p class="text-sm text-slate-500 max-w-sm leading-relaxed">
+            Riwayat pencarian akan otomatis tersimpan setiap kali Anda berhasil melakukan crawling berita dari menu utama.
           </p>
         </div>
       </div>
@@ -454,168 +513,152 @@
       <!-- ─────────────────────────────────────────── -->
       <!-- PAGE: PENGATURAN                             -->
       <!-- ─────────────────────────────────────────── -->
-      <div id="page-settings" class="hidden max-w-4xl w-full mx-auto px-6 py-6 space-y-6">
+      <div id="page-settings" class="hidden max-w-4xl w-full mx-auto px-6 pb-10 space-y-6 animate-fade-in">
 
-        <div>
-          <h2 class="text-base font-semibold text-slate-800 dark:text-white">Pengaturan Sistem</h2>
-          <p class="text-xs text-slate-500 mt-0.5">Konfigurasi parameter crawling dan model AI.</p>
+        <div class="glass-panel p-5 rounded-2xl flex items-center gap-4">
+           <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-dkpp-navy/10 to-dkpp-navy/5 dark:from-dkpp-gold/20 dark:to-dkpp-gold/10 flex items-center justify-center text-dkpp-navy dark:text-dkpp-gold border border-white/50 dark:border-slate-700">
+             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+             </svg>
+           </div>
+           <div>
+             <h2 class="text-lg font-bold text-slate-800 dark:text-white">Pengaturan Sistem</h2>
+             <p class="text-xs font-medium text-slate-500 mt-0.5">Konfigurasi mendalam parameter AI dan gaya visual aplikasi.</p>
+           </div>
         </div>
 
-        <div class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
           <!-- Card: Crawling -->
-          <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm dark:shadow-none transition-colors">
-            <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800/60">
-              <svg class="w-4 h-4 text-dkpp-navy dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-              </svg>
-              <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Pengaturan Crawling</h3>
-            </div>
+          <div class="glass-panel rounded-2xl p-6 h-fit border-t-4 border-t-dkpp-navy dark:border-t-dkpp-gold">
+            <h3 class="text-sm font-bold text-slate-800 dark:text-white mb-6 uppercase tracking-wider">Perilaku Crawling</h3>
             
-            <div class="space-y-5 max-w-xs">
-              <div class="space-y-1.5">
-                <label for="setting-default-keywords" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  Kata Kunci Bawaan
+            <div class="space-y-6">
+              <div class="space-y-2">
+                <label for="setting-default-keywords" class="block text-xs font-bold text-slate-600 dark:text-slate-400">
+                  Kata Kunci Permanen
                 </label>
-                <input type="text" id="setting-default-keywords" placeholder="DKPP RI, Dewan Kehormatan Penyelenggara Pemilu" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all" />
-                <p class="text-[10px] text-slate-500">Pisahkan dengan koma. Sistem akan mencari berita yang mengandung salah satu dari kata kunci ini.</p>
+                <input type="text" id="setting-default-keywords" placeholder="DKPP RI..." class="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-dkpp-navy dark:focus:ring-dkpp-gold transition-all shadow-inner" />
+                <p class="text-[10px] text-slate-500">Kata ini akan selalu disertakan dalam setiap pencarian RSS di belakang layar.</p>
               </div>
 
-              <div class="space-y-1.5">
-                <label for="setting-max-results" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  Maksimal Hasil Pencarian
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <label for="setting-max-results" class="block text-xs font-bold text-slate-600 dark:text-slate-400">Limit Berita</label>
+                  <select id="setting-max-results" class="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-dkpp-navy dark:focus:ring-dkpp-gold transition-all">
+                    <option value="10">10 Artikel</option>
+                    <option value="25">25 Artikel</option>
+                    <option value="50">50 Artikel</option>
+                    <option value="100">100 Artikel</option>
+                  </select>
+                </div>
+
+                <div class="space-y-2">
+                  <label for="setting-timeout" class="block text-xs font-bold text-slate-600 dark:text-slate-400">Timeout</label>
+                  <select id="setting-timeout" class="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-dkpp-navy dark:focus:ring-dkpp-gold transition-all">
+                    <option value="15000">15 dtk</option>
+                    <option value="25000">25 dtk</option>
+                    <option value="40000">40 dtk</option>
+                    <option value="60000">60 dtk</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <label for="setting-request-delay" class="block text-xs font-bold text-slate-600 dark:text-slate-400">
+                  Interval Antar Request (Anti-Bot)
                 </label>
-                <select id="setting-max-results" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
-                  <option value="10">10 Artikel</option>
-                  <option value="25">25 Artikel</option>
-                  <option value="50">50 Artikel</option>
-                  <option value="100">100 Artikel</option>
+                <select id="setting-request-delay" class="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-dkpp-navy dark:focus:ring-dkpp-gold transition-all">
+                  <option value="500">Agresif (500ms)</option>
+                  <option value="800">Normal (800ms)</option>
+                  <option value="1500">Santai (1.5 dtk)</option>
+                  <option value="3000">Paling Aman (3 dtk)</option>
                 </select>
-                <p class="text-[10px] text-slate-500">Membatasi jumlah berita yang akan diekstrak.</p>
               </div>
 
-              <div class="space-y-1.5">
-                <label for="setting-timeout" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  Batas Waktu per Artikel
+              <div class="pt-4 border-t border-slate-200/50 dark:border-slate-700/50">
+                <label class="flex items-center gap-3 cursor-pointer group">
+                  <div class="relative flex items-center justify-center">
+                    <input type="checkbox" id="setting-trusted-media" class="peer sr-only">
+                    <div class="w-10 h-5 bg-slate-300 dark:bg-slate-700 rounded-full peer-checked:bg-dkpp-navy dark:peer-checked:bg-dkpp-gold transition-colors"></div>
+                    <div class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-5 shadow-sm"></div>
+                  </div>
+                  <span class="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-dkpp-navy dark:group-hover:text-dkpp-gold transition-colors">Filter Media Nasional Terpercaya</span>
                 </label>
-                <select id="setting-timeout" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
-                  <option value="15000">15 detik</option>
-                  <option value="25000">25 detik (default)</option>
-                  <option value="40000">40 detik</option>
-                  <option value="60000">60 detik</option>
-                </select>
-                <p class="text-[10px] text-slate-500">Waktu maksimal menunggu respons dari setiap artikel.</p>
               </div>
 
-              <div class="space-y-1.5">
-                <label for="setting-request-delay" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  Jeda antar Permintaan
+              <div class="space-y-2">
+                <label for="setting-trusted-media-domains" class="block text-xs font-bold text-slate-600 dark:text-slate-400">
+                  Daftar Putih Domain Media (Whitelist)
                 </label>
-                <select id="setting-request-delay" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
-                  <option value="500">500ms (cepat)</option>
-                  <option value="800">800ms (default)</option>
-                  <option value="1500">1,5 detik</option>
-                  <option value="3000">3 detik (aman)</option>
-                </select>
-                <p class="text-[10px] text-slate-500">Jeda antar permintaan untuk menghindari pemblokiran.</p>
-              </div>
-
-              <div class="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800/60">
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" id="setting-trusted-media" class="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 focus:ring-2 dark:bg-slate-700 dark:border-slate-600 transition-all">
-                  <span class="text-xs font-medium text-slate-700 dark:text-slate-300">Hanya Tampilkan Media Nasional Terpercaya</span>
-                </label>
-                <p class="text-[10px] text-slate-500 ml-6">Otomatis membuang artikel dari blog atau situs kecil yang tidak masuk daftar putih (whitelist).</p>
-              </div>
-
-              <div class="space-y-1.5">
-                <label for="setting-trusted-media-domains" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  Daftar Domain Media Terpercaya
-                </label>
-                <textarea id="setting-trusted-media-domains" rows="3" placeholder="kompas.com, detik.com, tempo.co"
-                  class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/40 transition-all resize-none"></textarea>
-                <p class="text-[10px] text-slate-500">Pisahkan dengan koma. Hanya domain yang tercantum di sini yang akan diproses saat filter media terpercaya aktif.</p>
+                <textarea id="setting-trusted-media-domains" rows="3" placeholder="kompas.com, detik.com..."
+                  class="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-dkpp-navy dark:focus:ring-dkpp-gold transition-all shadow-inner resize-none"></textarea>
               </div>
             </div>
           </div>
-
-
 
           <!-- Card: Tampilan & Aplikasi -->
-          <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm dark:shadow-none transition-colors">
-            <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800/60">
-              <svg class="w-4 h-4 text-orange-500 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
-              </svg>
-              <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Tampilan & Manajemen Data</h3>
+          <div class="space-y-6">
+            <div class="glass-panel rounded-2xl p-6 border-t-4 border-t-dkpp-navy dark:border-t-dkpp-gold">
+              <h3 class="text-sm font-bold text-slate-800 dark:text-white mb-6 uppercase tracking-wider">Tampilan & Penyimpanan</h3>
+              
+              <div class="space-y-5">
+                <div class="space-y-2">
+                  <label for="setting-theme" class="block text-xs font-bold text-slate-600 dark:text-slate-400">
+                    Tema Aplikasi
+                  </label>
+                  <select id="setting-theme" class="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-dkpp-navy dark:focus:ring-dkpp-gold transition-all">
+                    <option value="light">Terang (Light Mode)</option>
+                    <option value="dark">Gelap (Dark Mode)</option>
+                  </select>
+                </div>
+
+                <div class="space-y-2">
+                  <label for="setting-max-history" class="block text-xs font-bold text-slate-600 dark:text-slate-400">
+                    Kapasitas Ruang Riwayat
+                  </label>
+                  <select id="setting-max-history" class="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-dkpp-navy dark:focus:ring-dkpp-gold transition-all">
+                    <option value="25">25 pencarian</option>
+                    <option value="50">50 pencarian</option>
+                    <option value="100">100 pencarian (standar)</option>
+                    <option value="200">200 pencarian</option>
+                  </select>
+                </div>
+
+                <div class="pt-4 border-t border-slate-200/50 dark:border-slate-700/50">
+                  <button id="btn-clear-cache" type="button" class="w-full justify-center inline-flex items-center gap-2 px-4 py-3 text-xs font-bold text-red-600 dark:text-red-400 hover:text-white bg-red-50 dark:bg-red-500/10 hover:bg-red-500 border border-red-200 dark:border-red-500/20 rounded-xl transition-all shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    Wipe Database (Factory Reset)
+                  </button>
+                </div>
+              </div>
             </div>
-            
-            <div class="space-y-5 max-w-xs">
-              <div class="space-y-1.5">
-                <label for="setting-theme" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  Tema Aplikasi
-                </label>
-                <select id="setting-theme" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
-                  <option value="light">Terang (Light Mode)</option>
-                  <option value="dark">Gelap (Dark Mode)</option>
-                </select>
-                <p class="text-[10px] text-slate-500">Ubah tampilan aplikasi.</p>
-              </div>
 
-              <div class="space-y-1.5">
-                <label for="setting-max-history" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  Batas Riwayat Tersimpan
-                </label>
-                <select id="setting-max-history" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all">
-                  <option value="25">25 riwayat</option>
-                  <option value="50">50 riwayat</option>
-                  <option value="100">100 riwayat (default)</option>
-                  <option value="200">200 riwayat</option>
-                </select>
-                <p class="text-[10px] text-slate-500">Jumlah maksimal riwayat pencarian yang disimpan.</p>
-              </div>
-
-              <div class="pt-2 border-t border-slate-100 dark:border-slate-800/60">
-                <button id="btn-clear-cache" type="button" class="w-full justify-center inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/15 border border-red-200 dark:border-red-500/15 rounded-lg transition-all">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            <!-- Card: Tentang Aplikasi -->
+            <div class="glass-panel rounded-2xl p-6">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                   </svg>
-                  Bersihkan Cache & Riwayat
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Card: Tentang Aplikasi -->
-          <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm dark:shadow-none transition-colors">
-            <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800/60">
-              <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-              <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Tentang Aplikasi</h3>
-            </div>
-
-            <div class="space-y-3 max-w-md">
-              <div class="grid grid-cols-[140px_1fr] gap-y-2.5 text-xs">
-                <span class="text-slate-500">Nama Aplikasi</span>
-                <span class="text-slate-800 dark:text-white font-medium">SIAB DKPP</span>
-
-                <span class="text-slate-500">Versi</span>
-                <span id="about-version" class="text-slate-800 dark:text-white font-medium">—</span>
-
-                <span class="text-slate-500">Platform</span>
-                <span id="about-electron" class="text-slate-800 dark:text-white font-medium">—</span>
-
-                <span class="text-slate-500">Lokasi Database</span>
-                <span id="about-db-path" class="text-slate-800 dark:text-white font-mono text-[10px] break-all bg-slate-50 dark:bg-slate-800 px-2 py-1.5 rounded-lg">—</span>
+                </div>
+                <h3 class="text-sm font-bold text-slate-800 dark:text-white">Status Sistem</h3>
               </div>
 
-              <div class="pt-3 border-t border-slate-100 dark:border-slate-800/60">
-                <p class="text-[10px] text-slate-500 leading-relaxed">
-                  Sistem Informasi Agregator Berita untuk Dewan Kehormatan Penyelenggara Pemilu
-                  Republik Indonesia (DKPP RI). Digunakan untuk mengumpulkan, mengekstrak, dan
-                  menganalisis berita terkait DKPP dari berbagai sumber media daring.
-                </p>
+              <div class="bg-slate-50/50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200/50 dark:border-slate-700/50">
+                <div class="grid grid-cols-[110px_1fr] gap-y-3 text-xs">
+                  <span class="text-slate-500 font-semibold">Engine</span>
+                  <span class="text-slate-800 dark:text-white font-bold" id="about-electron">V8 + Node</span>
+
+                  <span class="text-slate-500 font-semibold">Build App</span>
+                  <span class="text-slate-800 dark:text-white font-bold" id="about-version">1.0.0</span>
+
+                  <span class="text-slate-500 font-semibold">Database URI</span>
+                  <span id="about-db-path" class="text-blue-600 dark:text-blue-400 font-mono text-[10px] break-all leading-tight">—</span>
+                </div>
               </div>
             </div>
           </div>
@@ -628,11 +671,16 @@
     <!-- ═══════════════════════════════════════════════ -->
     <!-- FOOTER                                         -->
     <!-- ═══════════════════════════════════════════════ -->
-    <footer class="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 py-4 mt-auto transition-colors">
-      <div class="max-w-7xl mx-auto px-6 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-500">
-        <span>&copy; 2026 SIAB DKPP</span>
+    <footer class="relative z-20 border-t border-slate-200/50 dark:border-slate-800/50 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md py-4 mt-auto">
+      <div class="max-w-7xl mx-auto px-6 flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+        <span>SIAB DKPP RI</span>
+        <span>&copy; 2026 Core Engine</span>
       </div>
     </footer>
+
+    <!-- Flatpickr Script -->
+    <script src="./node_modules/flatpickr/dist/flatpickr.min.js"></script>
+    <script src="./node_modules/flatpickr/dist/l10n/id.js"></script>
 
     <!-- Renderer Script -->
     <script src="renderer.js"></script>

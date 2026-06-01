@@ -244,27 +244,27 @@
     const time = new Date().toLocaleTimeString('id-ID');
     const entry = document.createElement('div');
     
-    let colorClass = 'text-slate-300';
+    let colorClass = 'text-slate-700 dark:text-slate-300';
     let typeLabel = '[INFO]';
     
     if (type === 'success') {
-      colorClass = 'text-emerald-400 font-semibold';
+      colorClass = 'text-emerald-600 dark:text-emerald-400 font-semibold';
       typeLabel = '[SUCCESS]';
     } else if (type === 'error') {
-      colorClass = 'text-red-400 font-semibold';
+      colorClass = 'text-red-600 dark:text-red-400 font-semibold';
       typeLabel = '[ERROR]';
     } else if (type === 'warning') {
-      colorClass = 'text-amber-400';
+      colorClass = 'text-amber-600 dark:text-amber-400 font-semibold';
       typeLabel = '[WARN]';
     } else if (type === 'debug') {
-      colorClass = 'text-cyan-400/80';
+      colorClass = 'text-cyan-600 dark:text-cyan-400/80';
       typeLabel = '[DEBUG]';
     } else if (type === 'ai') {
-      colorClass = 'text-purple-400';
+      colorClass = 'text-purple-600 dark:text-purple-400 font-semibold';
       typeLabel = '[AI]';
     }
 
-    entry.className = colorClass;
+    entry.className = colorClass + ' animate-fade-in transition-all duration-300';
     entry.innerHTML = `<span class="text-slate-500">[${time}]</span> <span class="opacity-90">${typeLabel}</span> ${message}`;
     
     DOM.logTerminal.appendChild(entry);
@@ -611,7 +611,7 @@
           <a href="${escapeHtml(article.link)}"
              target="_blank"
              rel="noopener noreferrer"
-             class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition-colors line-clamp-2"
+             class="text-sm text-dkpp-navy dark:text-dkpp-gold hover:text-blue-900 dark:hover:text-yellow-500 hover:underline transition-colors line-clamp-2"
              title="${escapeHtml(article.title)}">
             ${escapeHtml(article.title)}
           </a>
@@ -630,198 +630,35 @@
     });
   }
 
-  const INDONESIAN_STOPWORDS = new Set([
-    "ada", "adalah", "adanya", "adapun", "agak", "agaknya", "agar", "akan", "akankah", "akhir",
-    "akhiri", "akhirnya", "aku", "akulah", "amat", "amatlah", "anda", "andalah", "antar", "antara",
-    "antaranya", "apa", "apaan", "apabila", "apakah", "apalagi", "apatah", "artinya", "asal",
-    "asalkan", "atas", "atau", "ataukah", "ataupun", "awal", "awalnya", "bagai", "bagaikan",
-    "bagaimana", "bagaimanakah", "bagaimanapun", "bagi", "bagian", "bahkan", "bahwa", "bahwasanya",
-    "baik", "bakal", "bakalan", "balik", "banyak", "bapak", "baru", "bawah", "beberapa", "begini",
-    "beginian", "beginikah", "beginilah", "begitu", "begitukah", "begitulah", "begitupun", "bekerja",
-    "belakang", "belakangan", "belum", "belumlah", "benar", "benarkah", "benarlah", "berada",
-    "berakhir", "berakhirlah", "berakhirnya", "berapa", "berapakah", "berapalah", "berapapun",
-    "berarti", "berawal", "berbagai", "berdatangan", "beri", "berikan", "berikut", "berikutnya",
-    "berjumlah", "berkali-kali", "berkata", "berkat", "berkehendak", "berkeinginan", "berkenaan",
-    "berlainan", "berlalu", "berlangsung", "berlebihan", "bermacam", "bermacam-macam", "bermaksud",
-    "bermula", "bersama", "bersama-sama", "bersiap", "bersiap-siap", "bertanya", "bertanya-tanya",
-    "berturut", "berturut-turut", "bertutur", "berujar", "berupa", "besar", "betul", "betulkah",
-    "biasa", "biasanya", "bila", "bilakah", "bisa", "bisakah", "boleh", "bolehkah", "bolehlah",
-    "buat", "bukan", "bukankah", "bukanlah", "bukannya", "bulan", "bung", "cara", "caranya",
-    "cukup", "cukuplah", "cukupnya", "cuma", "dahulu", "dalam", "dan", "dapat", "dari", "daripada",
-    "datang", "dekat", "demi", "demikian", "demikianlah", "dengan", "depan", "di", "dia", "diakhiri",
-    "diakhirinya", "dialah", "diantara", "diantaranya", "diberi", "diberikan", "diberikannya",
-    "dibuat", "dibuatnya", "didapat", "didatangkan", "digunakan", "diibaratkan", "diibaratkannya",
-    "diingat", "diingatkan", "diinginkan", "dijawab", "dijelaskan", "dijelaskannya", "dikarenakan",
-    "dikatakan", "dikatakannya", "dikerjakan", "diketahui", "diketahuinya", "dikira", "dilakukan",
-    "dilalui", "dilihat", "dimaksud", "dimaksudkan", "dimaksudkannya", "dimaksudnya", "diminta",
-    "dimintai", "dimisalkan", "dimulai", "dimulailah", "dimulainya", "dimungkinkan", "dini",
-    "dipastikan", "diperbuat", "diperbuatnya", "dipergunakan", "diperkirakan", "diperlihatkan",
-    "diperlukan", "diperlukannya", "dipersoalkan", "dipertanyakan", "dipunyai", "diri", "dirinya",
-    "disampaikan", "disebut", "disebutkan", "disebutkannya", "disini", "disinilah", "ditambahkan",
-    "ditandaskan", "ditanya", "ditanyai", "ditanyakan", "ditegaskan", "ditujukan", "ditunjuk",
-    "ditunjuki", "ditunjukkan", "ditunjukkannya", "ditunjuknya", "dituturkan", "dituturkannya",
-    "diucapkan", "diucapkannya", "diungkapkan", "dong", "dua", "dulu", "empat", "enggan", "enggankah",
-    "engkau", "engkaukah", "engkaulah", "hal", "hampir", "hanya", "hanyakah", "hanyalah", "hari",
-    "harus", "haruskah", "haruslah", "hebat", "hendak", "hendaklah", "hendaknya", "hingga", "ia",
-    "ialah", "ibarat", "ibaratkan", "ibaratnya", "ibu", "ikut", "ingat", "ingat-ingat", "ingin",
-    "inginkah", "inginkan", "ini", "inikah", "inilah", "itu", "itukah", "itulah", "jadi", "jadilah",
-    "jadinya", "jangan", "jangankah", "janganlah", "janji", "jauh", "jawab", "jawaban", "jawabnya",
-    "jelas", "jelaskan", "jelaslah", "jelasnya", "jika", "jikalau", "juga", "jumlah", "jumlahnya",
-    "justru", "kala", "kalau", "kalaukah", "kalaupun", "kalian", "kami", "kamilah", "kamu", "kamulah",
-    "kan", "kapan", "kapankah", "kapanpun", "karena", "karenanya", "kasus", "kata", "katakan",
-    "katakanlah", "katanya", "ke", "keadaan", "kebetulan", "kecil", "kedua", "keduanya", "keinginan",
-    "kelamaan", "kelihatan", "kelihatannya", "kelima", "keluar", "kembali", "kemudian", "kemungkinan",
-    "kemungkinannya", "kenapa", "kepada", "kepadanya", "kesampaian", "keseluruhan", "keseluruhannya",
-    "keterlaluan", "ketika", "khususnya", "kini", "kinilah", "kira", "kira-kira", "kiranya", "kita",
-    "kitalah", "kok", "kurang", "lagi", "lagian", "lah", "lain", "lainnya", "lalu", "lama", "lamanya",
-    "lanjut", "lanjutnya", "lebih", "lewat", "lima", "luar", "macam", "maka", "makanya", "makin",
-    "malah", "malahan", "mampu", "mampukah", "mana", "manakala", "manalagi", "masa", "masalah",
-    "masalahnya", "masih", "masihkah", "masing", "masing-masing", "mau", "maupun", "melainkan",
-    "melakukan", "melalui", "melihat", "melihatnya", "memang", "memastikan", "memberi", "memberikan",
-    "membuat", "memerlukan", "memihak", "meminta", "memintakan", "memisalkan", "memperbuat",
-    "mempergunakan", "memperkirakan", "memperlihatkan", "mempersiapkan", "mempersoalkan", "mempertanyakan",
-    "mempunyai", "memulai", "menandaskan", "menanti", "menanti-nanti", "menantikan", "menanya",
-    "menanyai", "menanyakan", "mendapat", "mendapatkan", "mendatang", "mendatangi", "mendatangkan",
-    "menegaskan", "mengakhiri", "mengapa", "mengatakan", "mengatakannya", "mengenai", "mengerjakan",
-    "mengetahui", "menggunakan", "menghendaki", "mengibaratkan", "mengibaratkannya", "mengingat",
-    "mengingatkan", "menginginkan", "mengira", "mengucapkan", "mengucapkannya", "mengungkapkan",
-    "menjadi", "menjawab", "menjelaskan", "menuju", "menunjuk", "menunjuki", "menunjukkan", "menunjuknya",
-    "menurut", "menuturkan", "menyampaikan", "menyangkut", "menyatakan", "menyebutkan", "menyeluruh",
-    "menyiapkan", "merasa", "mereka", "merekalah", "merupakan", "meski", "meskipun", "meyakini",
-    "meyakinkan", "minta", "mirip", "misal", "misalkan", "misalnya", "mula", "mulai", "mulailah",
-    "mulanya", "mungkin", "mungkinkah", "nah", "naik", "namun", "nanti", "nantinya", "nyaris",
-    "nyata", "nyatanya", "oleh", "olehnya", "pada", "padahal", "padanya", "pak", "paling", "panjang",
-    "pantas", "pantaskah", "pantaslah", "para", "pasti", "pastilah", "penting", "pentingnya", "per",
-    "percuma", "perlu", "perlukah", "perlunya", "pernah", "persoalan", "pertama", "pertama-tama",
-    "pertanyaan", "pertanyakan", "pihak", "pihaknya", "pukul", "pula", "pun", "punya", "rasa",
-    "rasanya", "rupa", "rupanya", "saat", "saatnya", "saja", "sajalah", "saling", "sama", "sama-sama",
-    "sambil", "sampai", "sampai-sampai", "sampaikan", "sana", "sangat", "sangatlah", "satu", "saya",
-    "sayalah", "se", "sebab", "sebabnya", "sebagai", "sebagaimana", "sebagainya", "sebagian",
-    "sebaik", "sebaik-baiknya", "sebaiknya", "sebaliknya", "sebanyak", "sebegini", "sebegitu",
-    "sebelum", "sebelumnya", "sebenarnya", "seberapa", "sebesar", "sebetulnya", "sebisanya", "sebuah",
-    "sebut", "sebutlah", "sebutnya", "secara", "secukupnya", "sedang", "sedangkan", "sedemikian",
-    "sedikit", "sedikitnya", "seenaknya", "segala", "segalanya", "segera", "seharusnya", "sehingga",
-    "seingat", "sejak", "sejauh", "sejenak", "sejumlah", "sekadar", "sekadarnya", "sekali", "sekali-kali",
-    "sekalian", "sekaligus", "sekalipun", "sekarang", "sekaranglah", "sekecil", "seketika", "sekiranya",
-    "sekitar", "sekitarnya", "sekurang-kurangnya", "sekurangnya", "sela", "selain", "selaku", "selalu",
-    "selama", "selama-lamanya", "selamanya", "selanjutnya", "seluruh", "seluruhnya", "semacam",
-    "semakin", "semampu", "semampunya", "semasa", "semasih", "semata", "semata-mata", "semaunya",
-    "sementara", "semisal", "semisalnya", "sempat", "semua", "semuanya", "semula", "sendiri",
-    "sendirian", "sendirinya", "seolah", "seolah-olah", "seorang", "sepanjang", "sepantasnya",
-    "sepantasnyalah", "seperlunya", "seperti", "sepertinya", "sepihak", "sering", "seringnya",
-    "serta", "serupa", "sesaat", "sesama", "sesampai", "sesegera", "sesekali", "seseorang", "sesuatu",
-    "sesuatunya", "sesudah", "sesudahnya", "setelah", "setempat", "setengah", "seterusnya", "setiap",
-    "setiba", "setibanya", "setidak-tidaknya", "setidaknya", "setinggi", "seusai", "sewaktu", "siap",
-    "siapa", "siapakah", "siapapun", "sini", "sinilah", "soal", "soalnya", "suatu", "sudah", "sudahkah",
-    "sudahlah", "supaya", "tadi", "tadinya", "tahu", "tahun", "tak", "tambah", "tambahnya", "tampak",
-    "tampaknya", "tandas", "tandasnya", "tanpa", "tanya", "tanyakan", "tanyanya", "tapi", "tegas",
-    "tegasnya", "telah", "tempat", "tengah", "tentang", "tentu", "tentulah", "tentunya", "tepat",
-    "terakhir", "terasa", "terbanyak", "terdahulu", "terdapat", "terdiri", "terhadap", "terhadapnya",
-    "teringat", "teringat-ingat", "terjadi", "terjadilah", "terjadinya", "terkira", "terlalu",
-    "terlebih", "terlihat", "termasuk", "ternyata", "tersampaikan", "tersebut", "tersebutlah",
-    "tertentu", "tertuju", "terus", "terutama", "tetap", "tetapi", "tiap", "tiba", "tiba-tiba", "tidak",
-    "tidakkah", "tidaklah", "tiga", "tinggi", "toh", "tunjuk", "turut", "tutur", "tuturnya", "ucap",
-    "ucapnya", "ujar", "ujarnya", "umum", "umumnya", "ungkap", "ungkapnya", "untuk", "usah", "usai",
-    "waduh", "wah", "wahai", "waktu", "waktunya", "walau", "walaupun", "wong", "yaitu", "yakin", "yakni", "yang"
-  ]);
 
-  /**
-   * Extractive Summarization Algorithm (Term Frequency based)
-   * 1. Split text into sentences
-   * 2. Calculate word frequencies (ignoring stopwords)
-   * 3. Score sentences based on word frequencies
-   * 4. Return top 2 sentences, joined, up to maxChars
-   */
-  function generateExtractiveSummary(text, maxChars = 500) {
-    if (!text || text.trim() === '') return '';
-
-    // 1. Split into sentences (improved: melindungi singkatan & angka desimal dari pemecahan yang salah)
-    const ABBR_RE = /\b(Dr|Prof|Mr|Mrs|Sdr|Sdri|Ir|Hj|H|KH|Rp|dll|dsb|dkk|yth|No|Jl|Kel|Kec|Kab|Prov|vs|vol|hal|hlm)\./gi;
-    let processed = text.replace(ABBR_RE, '$1\u0000');
-    processed = processed.replace(/(\d)\.(\d)/g, '$1\u0000$2');
-    const rawSentences = processed.match(/[^.!?]+[.!?]+/g) || [processed];
-    const sentences = rawSentences.map(s => s.replace(/\u0000/g, '.'));
-    
-    // If it's already very short, just return it
-    if (text.length <= maxChars && sentences.length <= 2) {
-      return text.trim();
-    }
-
-    // 2. Calculate word frequencies
-    const wordFreq = {};
-    const cleanSentences = sentences.map(s => s.trim()).filter(s => s.length > 10);
-    
-    if (cleanSentences.length === 0) return text.substring(0, maxChars) + '...';
-
-    cleanSentences.forEach(sentence => {
-      // Get words (alphanumeric only)
-      const words = sentence.toLowerCase().match(/[a-z0-9]+/g) || [];
-      words.forEach(word => {
-        if (!INDONESIAN_STOPWORDS.has(word) && word.length > 2) {
-          wordFreq[word] = (wordFreq[word] || 0) + 1;
-        }
-      });
-    });
-
-    // 3. Score sentences
-    const sentenceScores = cleanSentences.map((sentence, originalIndex) => {
-      const words = sentence.toLowerCase().match(/[a-z0-9]+/g) || [];
-      let score = 0;
-      words.forEach(word => {
-        if (wordFreq[word]) {
-          score += wordFreq[word];
-        }
-      });
-      
-      // Normalize score by length to avoid just picking the longest sentence
-      // But give slight boost to first sentences as they usually contain intro
-      const normalizedScore = words.length > 0 ? (score / words.length) : 0;
-      const positionBoost = (cleanSentences.length - originalIndex) / cleanSentences.length; 
-      
-      return {
-        text: sentence,
-        score: normalizedScore + (positionBoost * 0.5),
-        index: originalIndex
-      };
-    });
-
-    // 4. Sort by score descending and take top 2
-    sentenceScores.sort((a, b) => b.score - a.score);
-    const topSentences = sentenceScores.slice(0, 2);
-
-    // Sort back by original chronological order
-    topSentences.sort((a, b) => a.index - b.index);
-
-    // 5. Join and truncate if needed
-    let summary = topSentences.map(s => s.text).join(' ');
-
-    if (summary.length > maxChars) {
-      summary = summary.substring(0, maxChars).trim() + '...';
-    }
-
-    return summary;
-  }
 
   // ── Snippet Extraction ───────────────────────────────────────
 
-  function extractSnippets(articleList) {
-    // Queue articles for snippet extraction
+  async function extractSnippets(articleList) {
+    // Queue articles for snippet extraction (via IPC to main process)
     const articlesWithText = articleList.filter(a => a.hasText);
     pendingSnippets = articlesWithText.length;
-    console.log(`[RENDERER] Extracting snippets for ${articlesWithText.length} articles`);
+    console.log(`[RENDERER] Extracting snippets for ${articlesWithText.length} articles via main process`);
 
     if (articlesWithText.length === 0) return;
 
-    logSystem('Mengekstrak cuplikan teks...', 'info');
-    articlesWithText.forEach((article) => {
-      // Extractive summary max 500 chars
-      let snippet = generateExtractiveSummary(article.cleanText, 500);
-      
-      snippets[article.index] = snippet;
-      updateCellSummary(article.index, snippet, 'done');
+    logSystem('Mengekstrak cuplikan teks melalui main process...', 'info');
+
+    // Process sequentially via IPC to avoid flooding and keep UI responsive
+    for (const article of articlesWithText) {
+      try {
+        // Panggil main process via IPC — setiap await memberi jeda agar UI tetap responsif
+        const snippet = await window.electronAPI.generateSummary(article.cleanText);
+        snippets[article.index] = snippet;
+        updateCellSummary(article.index, snippet, 'done');
+      } catch (err) {
+        console.error(`[RENDERER] Summary IPC failed for article ${article.index}:`, err);
+        snippets[article.index] = '[Gagal membuat cuplikan]';
+        updateCellSummary(article.index, '[Gagal membuat cuplikan]', 'error');
+      }
       pendingSnippets--;
-    });
-    
+    }
+
     onAllSnippetsComplete();
   }
 
@@ -996,7 +833,7 @@
             <td class="px-3 py-2 text-xs text-slate-600 dark:text-slate-400 font-mono">${i + 1}</td>
             <td class="px-3 py-2">
               <a href="${escapeHtml(a.link)}" target="_blank" rel="noopener noreferrer"
-                 class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline line-clamp-2">
+                 class="text-xs text-dkpp-navy dark:text-dkpp-gold hover:text-blue-900 dark:hover:text-yellow-500 hover:underline line-clamp-2">
                 ${escapeHtml(a.title)}
               </a>
             </td>
@@ -1028,7 +865,7 @@
             </div>
             <div class="flex items-center gap-1.5 ml-4 flex-shrink-0">
               <button data-action="toggle-detail" data-id="${entry.id}"
-                class="px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/15 border border-blue-200 dark:border-blue-500/20 rounded-lg transition-all">
+                class="px-3 py-1.5 text-xs font-medium text-dkpp-navy dark:text-dkpp-gold hover:text-blue-900 dark:hover:text-yellow-500 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/15 border border-blue-200 dark:border-blue-500/20 rounded-lg transition-all">
                 Detail
               </button>
               <button data-action="delete-item" data-id="${entry.id}"
@@ -1138,6 +975,27 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
   }
 
+  // ── Date Picker Initialization ───────────────────────────────
+
+  function initDatePickers() {
+    if (typeof flatpickr === 'undefined') return;
+    
+    const commonConfig = {
+      locale: "id",
+      dateFormat: "Y-m-d",
+      altInput: true,
+      altFormat: "j F Y",
+      allowInput: true,
+      disableMobile: true, // better UI on desktop
+      altInputClass: DOM.dateFrom.className // inherit Tailwind styling
+    };
+    
+    flatpickr(DOM.dateFrom, commonConfig);
+    
+    const configTo = { ...commonConfig, altInputClass: DOM.dateTo.className };
+    flatpickr(DOM.dateTo, configTo);
+  }
+
   // ── Boot ─────────────────────────────────────────────────────
 
   console.log('[RENDERER] Renderer process loaded');
@@ -1157,6 +1015,7 @@
   }
 
   (async () => {
+    initDatePickers();
     await loadSettings();
     await renderHistoryPage();
     await loadAppInfo();
