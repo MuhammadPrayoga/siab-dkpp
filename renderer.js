@@ -26,14 +26,7 @@
     timeout: 25000,
     requestDelay: 800,
     maxHistory: 100,
-    trustedMediaOnly: false,
-    defaultKeywords: 'DKPP RI, DEWAN KEHORMATAN PENYELENGGARA PEMILU',
-    trustedMediaDomains: [
-      'kompas.com', 'detik.com', 'antaranews.com', 'tribunnews.com',
-      'cnnindonesia.com', 'cnbcindonesia.com', 'tempo.co', 'viva.co.id',
-      'suara.com', 'liputan6.com', 'merdeka.com', 'republika.co.id',
-      'idntimes.com', 'tvonenews.com'
-    ]
+    defaultKeywords: 'DKPP RI, DEWAN KEHORMATAN PENYELENGGARA PEMILU'
   };
 
   // ── DOM References ───────────────────────────────────────────
@@ -82,9 +75,7 @@
     settingTimeout: document.getElementById('setting-timeout'),
     settingRequestDelay: document.getElementById('setting-request-delay'),
     settingMaxHistory: document.getElementById('setting-max-history'),
-    settingTrustedMedia: document.getElementById('setting-trusted-media'),
     settingDefaultKeywords: document.getElementById('setting-default-keywords'),
-    settingTrustedMediaDomains: document.getElementById('setting-trusted-media-domains'),
     btnClearCache: document.getElementById('btn-clear-cache'),
 
     // About section
@@ -168,11 +159,7 @@
     if (DOM.settingTimeout) DOM.settingTimeout.value = settings.timeout;
     if (DOM.settingRequestDelay) DOM.settingRequestDelay.value = settings.requestDelay;
     if (DOM.settingMaxHistory) DOM.settingMaxHistory.value = settings.maxHistory;
-    if (DOM.settingTrustedMedia) DOM.settingTrustedMedia.checked = settings.trustedMediaOnly;
     if (DOM.settingDefaultKeywords) DOM.settingDefaultKeywords.value = settings.defaultKeywords || '';
-    if (DOM.settingTrustedMediaDomains) {
-      DOM.settingTrustedMediaDomains.value = (settings.trustedMediaDomains || []).join(', ');
-    }
     
     applyTheme();
   }
@@ -184,12 +171,7 @@
       timeout: parseInt(DOM.settingTimeout.value, 10),
       requestDelay: parseInt(DOM.settingRequestDelay.value, 10),
       maxHistory: parseInt(DOM.settingMaxHistory.value, 10),
-      trustedMediaOnly: DOM.settingTrustedMedia.checked,
-      defaultKeywords: (DOM.settingDefaultKeywords.value || '').trim(),
-      trustedMediaDomains: (DOM.settingTrustedMediaDomains && DOM.settingTrustedMediaDomains.value || '')
-        .split(',')
-        .map(d => d.trim().toLowerCase())
-        .filter(d => d.length > 0)
+      defaultKeywords: (DOM.settingDefaultKeywords.value || '').trim()
     };
 
     // Save to persistent database via IPC
@@ -211,18 +193,13 @@
   }
 
   // Attach change listeners to settings inputs
-  [DOM.settingMaxResults, DOM.settingTheme, DOM.settingTimeout, DOM.settingRequestDelay, DOM.settingMaxHistory, DOM.settingTrustedMedia, DOM.settingDefaultKeywords, DOM.settingTrustedMediaDomains].forEach(el => {
+  [DOM.settingMaxResults, DOM.settingTheme, DOM.settingTimeout, DOM.settingRequestDelay, DOM.settingMaxHistory, DOM.settingDefaultKeywords].forEach(el => {
     if (el) el.addEventListener('change', saveSettings);
   });
 
   // Save keywords on blur (when user clicks away) so they don't need to press Enter
   if (DOM.settingDefaultKeywords) {
     DOM.settingDefaultKeywords.addEventListener('blur', saveSettings);
-  }
-
-  // Simpan daftar domain media terpercaya saat pengguna klik di luar textarea
-  if (DOM.settingTrustedMediaDomains) {
-    DOM.settingTrustedMediaDomains.addEventListener('blur', saveSettings);
   }
 
   if (DOM.btnClearCache) {
@@ -379,9 +356,7 @@
       maxResults: settings.maxResults,
       timeout: settings.timeout,
       requestDelay: settings.requestDelay,
-      trustedMediaOnly: settings.trustedMediaOnly,
-      defaultKeywords: settings.defaultKeywords,
-      trustedMediaDomains: settings.trustedMediaDomains || []
+      defaultKeywords: settings.defaultKeywords
     };
 
     console.log('[RENDERER] Starting crawl with params:', params);

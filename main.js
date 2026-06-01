@@ -10,7 +10,8 @@ const RSSParser = require('rss-parser');
 const { JSDOM } = require('jsdom');
 const { Readability } = require('@mozilla/readability');
 const db = require('./database');
-
+const GoogleNewsDecoder = require('google-news-decoder');
+const googleNewsDecoder = new GoogleNewsDecoder();
 // ── Stealth Mode: User-Agent Rotation ────────────────────────
 // Daftar User-Agent dari browser sungguhan agar tidak terdeteksi sebagai bot
 
@@ -95,12 +96,9 @@ function buildRssUrl(keyword, dateFrom, dateTo, defaultKeywords) {
     .filter(k => k.length > 0)
     .map(k => `"${k}"`);
 
-  // Pengecualian: web pemerintah + semua platform media sosial
+  // Pengecualian:  // Daftar ekstensi / situs yang ingin diabaikan (Jangan terlalu banyak agar tidak merusak filter tanggal Google RSS)
   const excludedSites = [
-    'go.id',
-    'facebook.com', 'linkedin.com', 'twitter.com', 'x.com',
-    'instagram.com', 'tiktok.com', 'youtube.com', 'reddit.com',
-    'threads.net', 'pinterest.com', 'quora.com', 'tumblr.com'
+    'dkpp.go.id', 'go.id'
   ];
   const siteExclusions = excludedSites.map(s => `-site:${s}`).join(' ');
 
@@ -417,37 +415,41 @@ ipcMain.handle('start-crawl', async (event, params) => {
     const articles = [];
     const maxResults = params.maxResults || 50;
 
-    // ── Daftar Putih Media (Whitelist) ──
-    const DEFAULT_TRUSTED_MEDIA = [
-      'kompas.com', 'detik.com', 'antaranews.com', 'tribunnews.com',
-      'cnnindonesia.com', 'cnbcindonesia.com', 'tempo.co', 'viva.co.id',
-      'suara.com', 'liputan6.com', 'merdeka.com', 'republika.co.id',
-      'idntimes.com', 'tvonenews.com'
-    ];
-    // Gunakan daftar dari pengaturan jika tersedia, fallback ke default
-    const TRUSTED_MEDIA = (params.trustedMediaDomains && params.trustedMediaDomains.length > 0)
-      ? params.trustedMediaDomains
-      : DEFAULT_TRUSTED_MEDIA;
-
-    // Siapkan daftar task (artikel yang harus di-crawl) dengan memfilter media terpercaya jika aktif
+    // Siapkan daftar task (artikel yang harus di-crawl)
     const tasks = [];
     for (let i = 0; i < feed.items.length && tasks.length < maxResults; i++) {
       const item = feed.items[i];
       const source = extractSource(item);
       const articleUrl = extractArticleUrl(item);
 
-      if (params.trustedMediaOnly) {
-        let isTrusted = false;
-        const lowerUrl = articleUrl.toLowerCase();
-        for (const domain of TRUSTED_MEDIA) {
-          if (lowerUrl.includes(domain)) {
-            isTrusted = true;
-            break;
-          }
+      // Pengecualian wajib: Abaikan website resmi DKPP RI
+      if (articleUrl.toLowerCase().includes('dkpp.go.id')) {
+        console.log(`[MAIN] Skipped official dkpp site: ${articleUrl}`);
+        continue;
+      }
+
+      // Filter tanggal ketat karena Google News RSS sering bocor (tanggal di luar range)
+      let itemDate = null;
+      if (item.pubDate || item.isoDate) {
+        itemDate = new Date(item.pubDate || item.isoDate);
+      }
+
+      if (itemDate && !isNaN(itemDate.getTime())) {
+        if (params.dateFrom) {
+           const fromDate = new Date(params.dateFrom);
+           fromDate.setHours(0, 0, 0, 0);
+           if (itemDate < fromDate) {
+              console.log(`[MAIN] Skipped due to dateFrom: ${itemDate} < ${fromDate}`);
+              continue;
+           }
         }
-        if (!isTrusted) {
-          console.log(`[MAIN] Skipped untrusted source: ${source}`);
-          continue; // Lewati item ini
+        if (params.dateTo) {
+           const toDate = new Date(params.dateTo);
+           toDate.setHours(23, 59, 59, 999);
+           if (itemDate > toDate) {
+              console.log(`[MAIN] Skipped due to dateTo: ${itemDate} > ${toDate}`);
+              continue;
+           }
         }
       }
 
@@ -496,14 +498,34 @@ ipcMain.handle('start-crawl', async (event, params) => {
         console.log(`[MAIN] ── Article ${taskIndex + 1}/${filteredTotalItems} [Worker ${workerId}] ──`);
         console.log(`[MAIN] Title: ${task.title}`);
 
-        const cleanText = await extractWithRetry(task.articleUrl, hiddenWindow, params.timeout || 25000);
+        // Decode Google News URL to get the real source URL
+        let targetUrl = task.articleUrl;
+        if (targetUrl.includes('news.google.com')) {
+          try {
+            const decodeResult = await googleNewsDecoder.decodeGoogleNewsUrl(targetUrl);
+            if (decodeResult && decodeResult.status && decodeResult.decodedUrl) {
+              targetUrl = decodeResult.decodedUrl;
+              console.log(`[MAIN] Decoded Google News URL: ${targetUrl}`);
+            }
+          } catch (decodeErr) {
+            console.error(`[MAIN] Failed to decode URL: ${decodeErr.message}`);
+          }
+        }
+
+        // Pengecualian wajib: Abaikan website resmi DKPP RI SETELAH di-decode
+        if (targetUrl.toLowerCase().includes('dkpp.go.id')) {
+          console.log(`[MAIN] Skipped official dkpp site after decode: ${targetUrl}`);
+          continue;
+        }
+
+        const cleanText = await extractWithRetry(targetUrl, hiddenWindow, params.timeout || 25000);
         const formattedDate = formatDate(task.item.pubDate || task.item.isoDate);
 
         const article = {
           index: task.index,
           title: task.title,
           source: task.source,
-          link: task.articleUrl,
+          link: targetUrl,
           date: formattedDate,
           rawDate: task.item.pubDate || task.item.isoDate || '',
           cleanText: cleanText || '[Gagal mengekstrak teks artikel]',
