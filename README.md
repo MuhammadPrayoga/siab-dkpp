@@ -12,9 +12,10 @@ Seluruh proses berjalan secara lokal di perangkat pengguna — tanpa API key, ta
   - Otomatis mencari berita terkait dengan query bawaan: `"DKPP RI" OR "DEWAN KEHORMATAN PENYELENGGARA PEMILU"`.
   - Mendukung penyaringan kata kunci tambahan dan rentang waktu (tanggal awal & akhir).
   - Mengambil feed RSS resmi dari Google News Indonesia.
-- **Ekstraksi Konten Artikel (Clean Extraction)**:
-  - Membuka tautan berita di latar belakang menggunakan *off-screen browser window* untuk menyelesaikan pengalihan JavaScript (*redirect*).
+- **Ekstraksi Konten Artikel (Stealth Crawler)**:
+  - Membuka tautan berita menggunakan *Puppeteer StealthPlugin* via *System Chrome* untuk menembus proteksi Cloudflare dan anti-bot modern secara transparan.
   - Menggunakan `@mozilla/readability` dan `jsdom` untuk menyaring serta mengekstrak teks utama artikel dengan bersih (menghapus iklan, navigasi, header, dan footer).
+  - Mengamankan proses *crawling* dengan menolak akses ke semua aset gambar dan media berat secara algoritmik demi kecepatan tinggi.
 - **Rangkuman Algoritmik (Extractive Summarization)**:
   - Menggunakan algoritma *Term Frequency* dengan daftar 300+ *stopwords* Bahasa Indonesia.
   - Secara otomatis memilih 2 kalimat paling representatif dari setiap artikel berdasarkan skor frekuensi kata kunci.
@@ -27,10 +28,15 @@ Seluruh proses berjalan secara lokal di perangkat pengguna — tanpa API key, ta
   - Menyimpan riwayat pencarian dan cuplikan teks secara persisten menggunakan database berbasis file (Lowdb) di direktori `%APPDATA%`.
   - Dilengkapi fitur tinjauan detail, penghapusan item, dan pembersihan seluruh riwayat.
   - Batas riwayat tersimpan dapat dikonfigurasi (25 / 50 / 100 / 200 entri).
+- **Stabilitas & Keamanan Tingkat Tinggi**:
+  - **Filter Domain Ekstensif**: Otomatis mengecualikan situs-situs pemerintah (DKPP, KPU, Bawaslu) dan puluhan portal sosial media (X, Facebook, Tiktok, Telegram, dsb.) secara presisi dengan verifikasi *URL Hostname*.
+  - **Proxy Rotasi (Rotating Proxies)**: Mendukung *input* ribuan IP Proxy. Sistem *crawler* akan merotasi IP target untuk menjaga anonimitas dan mencegah pemblokiran alamat IP lokal dari pengerukan berita skala masif.
+  - **Browser Chunking (Memory Management)**: Sistem akan me-restart peramban *Chrome* secara berkala setelah kelipatan beberapa artikel (misalnya: per 20 artikel) guna menjaga kondisi RAM laptop/PC tetap prima meski melakukan *crawling* ribuan tautan sekaligus.
 - **Pengaturan Sistem yang Lengkap**:
   - **Maks. Hasil Pencarian**: 10 / 25 / 50 / 100 artikel.
   - **Batas Waktu per Artikel**: 15 / 25 / 40 / 60 detik.
   - **Jeda antar Permintaan**: 500ms / 800ms / 1.5s / 3s (mencegah pemblokiran).
+  - **Daftar Proxy HTTP/SOCKS5** & **Batas Chunk Browser**.
   - **Tema Aplikasi**: Mode Terang / Mode Gelap.
   - **Tentang Aplikasi**: Menampilkan versi, platform Electron, dan lokasi database.
 - **Antarmuka Modern & Responsif**:
@@ -48,6 +54,7 @@ Seluruh proses berjalan secara lokal di perangkat pengguna — tanpa API key, ta
 | **UI/UX** | HTML5, Tailwind CSS (CDN), Google Fonts (Inter) |
 | **Logic** | Vanilla JavaScript (Main Process, Preload, Renderer) |
 | **RSS Parser** | `rss-parser` (Google News RSS Feed) |
+| **Crawler Engine** | `puppeteer-core`, `puppeteer-extra-plugin-stealth` |
 | **Article Parser** | `@mozilla/readability` & `jsdom` |
 | **Summarization** | Extractive Summarization (Term Frequency Algorithm) |
 | **Database** | `lowdb` (File-based JSON, persisten) |
