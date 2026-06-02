@@ -41,7 +41,9 @@ function initDatabase() {
       timeout: 25000,
       requestDelay: 800,
       maxHistory: 100,
-      defaultKeywords: 'DKPP RI, DEWAN KEHORMATAN PENYELENGGARA PEMILU'
+      defaultKeywords: 'DKPP RI, DEWAN KEHORMATAN PENYELENGGARA PEMILU',
+      proxyList: '',
+      chunkSize: 20
     }
   }).write();
 

@@ -386,7 +386,7 @@
                     <th class="px-5 py-4 text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-20 cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors group select-none" data-sort="status">
                       Status <span class="sort-arrow inline-block ml-1 opacity-0 group-hover:opacity-50 transition-opacity text-dkpp-navy dark:text-dkpp-gold">▲</span>
                     </th>
-                    <th class="px-5 py-4 text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider min-w-[280px]">Cuplikan Ekstraksi Teks</th>
+                    <th class="px-5 py-4 text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider min-w-[280px]">Ringkasan</th>
                   </tr>
                 </thead>
                 <tbody id="results-table-body" class="divide-y divide-slate-200/50 dark:divide-slate-700/50">
@@ -578,6 +578,27 @@
               </div>
 
 
+            </div>
+          </div>
+
+          <!-- Card: Jaringan & Memori -->
+          <div class="glass-panel rounded-2xl p-6 h-fit border-t-4 border-t-dkpp-navy dark:border-t-dkpp-gold">
+            <h3 class="text-sm font-bold text-slate-800 dark:text-white mb-6 uppercase tracking-wider">Jaringan & Memori</h3>
+            
+            <div class="space-y-6">
+              <div class="space-y-2">
+                <label for="setting-proxy-list" class="block text-xs font-bold text-slate-600 dark:text-slate-400">
+                  Daftar Proxy (Opsional)
+                </label>
+                <textarea id="setting-proxy-list" rows="3" placeholder="http://ip:port&#10;http://ip:port" class="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-dkpp-navy dark:focus:ring-dkpp-gold transition-all shadow-inner"></textarea>
+                <p class="text-[10px] text-slate-500">Masukkan 1 proxy per baris. Crawler akan memutar IP secara otomatis (Rotating Proxies) untuk menghindari pemblokiran.</p>
+              </div>
+
+              <div class="space-y-2">
+                <label for="setting-chunk-size" class="block text-xs font-bold text-slate-600 dark:text-slate-400">Restart Browser per Chunk</label>
+                <input type="number" id="setting-chunk-size" min="5" max="100" value="20" class="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-dkpp-navy dark:focus:ring-dkpp-gold transition-all" />
+                <p class="text-[10px] text-slate-500">Batas jumlah artikel sebelum browser direstart otomatis untuk membersihkan kebocoran RAM.</p>
+              </div>
             </div>
           </div>
 

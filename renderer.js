@@ -76,6 +76,8 @@
     settingRequestDelay: document.getElementById('setting-request-delay'),
     settingMaxHistory: document.getElementById('setting-max-history'),
     settingDefaultKeywords: document.getElementById('setting-default-keywords'),
+    settingProxyList: document.getElementById('setting-proxy-list'),
+    settingChunkSize: document.getElementById('setting-chunk-size'),
     btnClearCache: document.getElementById('btn-clear-cache'),
 
     // About section
@@ -160,6 +162,8 @@
     if (DOM.settingRequestDelay) DOM.settingRequestDelay.value = settings.requestDelay;
     if (DOM.settingMaxHistory) DOM.settingMaxHistory.value = settings.maxHistory;
     if (DOM.settingDefaultKeywords) DOM.settingDefaultKeywords.value = settings.defaultKeywords || '';
+    if (DOM.settingProxyList) DOM.settingProxyList.value = settings.proxyList || '';
+    if (DOM.settingChunkSize) DOM.settingChunkSize.value = settings.chunkSize || 20;
     
     applyTheme();
   }
@@ -171,7 +175,9 @@
       timeout: parseInt(DOM.settingTimeout.value, 10),
       requestDelay: parseInt(DOM.settingRequestDelay.value, 10),
       maxHistory: parseInt(DOM.settingMaxHistory.value, 10),
-      defaultKeywords: (DOM.settingDefaultKeywords.value || '').trim()
+      defaultKeywords: (DOM.settingDefaultKeywords.value || '').trim(),
+      proxyList: DOM.settingProxyList.value || '',
+      chunkSize: parseInt(DOM.settingChunkSize.value, 10) || 20
     };
 
     // Save to persistent database via IPC
@@ -193,7 +199,11 @@
   }
 
   // Attach change listeners to settings inputs
-  [DOM.settingMaxResults, DOM.settingTheme, DOM.settingTimeout, DOM.settingRequestDelay, DOM.settingMaxHistory, DOM.settingDefaultKeywords].forEach(el => {
+  [
+    DOM.settingMaxResults, DOM.settingTheme, DOM.settingTimeout, 
+    DOM.settingRequestDelay, DOM.settingMaxHistory, DOM.settingDefaultKeywords,
+    DOM.settingProxyList, DOM.settingChunkSize
+  ].forEach(el => {
     if (el) el.addEventListener('change', saveSettings);
   });
 
@@ -356,7 +366,9 @@
       maxResults: settings.maxResults,
       timeout: settings.timeout,
       requestDelay: settings.requestDelay,
-      defaultKeywords: settings.defaultKeywords
+      defaultKeywords: settings.defaultKeywords,
+      proxyList: settings.proxyList,
+      chunkSize: settings.chunkSize
     };
 
     console.log('[RENDERER] Starting crawl with params:', params);
@@ -596,7 +608,7 @@
         <td class="px-4 py-3">${statusBadge}</td>
         <td class="px-4 py-3">
           <div id="summary-cell-${article.index}" class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3">
-            ${article.hasText ? '⏳ Menunggu cuplikan...' : '—'}
+            ${article.hasText ? '⏳ Menunggu ringkasan...' : '—'}
           </div>
         </td>
       `;
@@ -617,7 +629,7 @@
 
     if (articlesWithText.length === 0) return;
 
-    logSystem('Mengekstrak cuplikan teks melalui main process...', 'info');
+    logSystem('Mengekstrak ringkasan teks melalui main process...', 'info');
 
     // Process sequentially via IPC to avoid flooding and keep UI responsive
     for (const article of articlesWithText) {
@@ -628,8 +640,8 @@
         updateCellSummary(article.index, snippet, 'done');
       } catch (err) {
         console.error(`[RENDERER] Summary IPC failed for article ${article.index}:`, err);
-        snippets[article.index] = '[Gagal membuat cuplikan]';
-        updateCellSummary(article.index, '[Gagal membuat cuplikan]', 'error');
+        snippets[article.index] = '[Gagal membuat ringkasan]';
+        updateCellSummary(article.index, '[Gagal membuat ringkasan]', 'error');
       }
       pendingSnippets--;
     }
@@ -653,7 +665,7 @@
     const BOM = '\uFEFF';
 
     // CSV Header
-    const headers = ['No', 'Judul', 'Sumber', 'Link', 'Tanggal', 'Status Ekstraksi', 'Teks Bersih', 'Cuplikan Teks'];
+    const headers = ['No', 'Judul', 'Sumber', 'Link', 'Tanggal', 'Status Ekstraksi', 'Teks Bersih', 'Ringkasan'];
 
     // CSV Rows
     const rows = articles.map((article, i) => {
@@ -864,7 +876,7 @@
                     <th class="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase w-24">Sumber</th>
                     <th class="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase w-32">Tanggal</th>
                     <th class="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase w-14">Status</th>
-                    <th class="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase min-w-[180px]">Cuplikan Teks</th>
+                    <th class="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase min-w-[180px]">Ringkasan</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200 dark:divide-slate-800/40">
@@ -961,14 +973,30 @@
       altInput: true,
       altFormat: "j F Y",
       allowInput: true,
-      disableMobile: true, // better UI on desktop
-      altInputClass: DOM.dateFrom.className // inherit Tailwind styling
+      disableMobile: true // better UI on desktop
     };
     
-    flatpickr(DOM.dateFrom, commonConfig);
+    let dateFromPicker, dateToPicker;
+
+    dateFromPicker = flatpickr(DOM.dateFrom, {
+      ...commonConfig,
+      altInputClass: DOM.dateFrom.className, // inherit Tailwind styling
+      onChange: function(selectedDates, dateStr) {
+        if (dateToPicker) {
+          dateToPicker.set('minDate', dateStr || null);
+        }
+      }
+    });
     
-    const configTo = { ...commonConfig, altInputClass: DOM.dateTo.className };
-    flatpickr(DOM.dateTo, configTo);
+    dateToPicker = flatpickr(DOM.dateTo, {
+      ...commonConfig,
+      altInputClass: DOM.dateTo.className,
+      onChange: function(selectedDates, dateStr) {
+        if (dateFromPicker) {
+          dateFromPicker.set('maxDate', dateStr || null);
+        }
+      }
+    });
   }
 
   // ── Boot ─────────────────────────────────────────────────────

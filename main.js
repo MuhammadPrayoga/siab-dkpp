@@ -12,6 +12,45 @@ const { Readability } = require('@mozilla/readability');
 const db = require('./database');
 const GoogleNewsDecoder = require('google-news-decoder');
 const googleNewsDecoder = new GoogleNewsDecoder();
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
+
+// ── Blocked Domains ───────────────────────────────────────────
+const BLOCKED_DOMAINS = [
+  'dkpp.go.id',
+  'bawaslu.go.id',
+  'kpu.go.id',
+  'instagram.com',
+  'twitter.com',
+  'x.com',
+  'facebook.com',
+  'tiktok.com',
+  'youtube.com',
+  'youtu.be',
+  'linkedin.com',
+  'threads.net',
+  't.me',
+  'wa.me',
+  'whatsapp.com',
+  'snackvideo.com',
+  'pinterest.com',
+  'reddit.com',
+  'kaskus.co.id'
+];
+
+function isBlockedUrl(url) {
+  if (!url) return false;
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+    return BLOCKED_DOMAINS.some(domain => hostname === domain || hostname.endsWith('.' + domain));
+  } catch (e) {
+    // Fallback if URL is invalid
+    return BLOCKED_DOMAINS.some(domain => url.toLowerCase().includes(domain));
+  }
+}
+
 // ── Stealth Mode: User-Agent Rotation ────────────────────────
 // Daftar User-Agent dari browser sungguhan agar tidak terdeteksi sebagai bot
 
@@ -98,7 +137,7 @@ function buildRssUrl(keyword, dateFrom, dateTo, defaultKeywords) {
 
   // Pengecualian:  // Daftar ekstensi / situs yang ingin diabaikan (Jangan terlalu banyak agar tidak merusak filter tanggal Google RSS)
   const excludedSites = [
-    'dkpp.go.id', 'go.id'
+    'dkpp.go.id', 'go.id', 'bawaslu.go.id', 'kpu.go.id'
   ];
   const siteExclusions = excludedSites.map(s => `-site:${s}`).join(' ');
 
@@ -472,84 +511,7 @@ ipcMain.handle('start-crawl', async (event, params) => {
     }
 
     // Buat pool hidden windows untuk crawling paralel
-    const workerCount = Math.min(CONCURRENT_WORKERS, filteredTotalItems);
-    const hiddenWindows = [];
-    for (let w = 0; w < workerCount; w++) {
-      hiddenWindows.push(createHiddenWindow());
-    }
-    console.log(`[MAIN] Created ${workerCount} concurrent workers for ${filteredTotalItems} tasks`);
-
-    // Worker function: ambil task dari antrian, proses, ulangi
-    let taskCursor = 0;
-    let completedCount = 0;
-
-    async function worker(hiddenWindow, workerId) {
-      while (taskCursor < tasks.length) {
-        const taskIndex = taskCursor++;
-        const task = tasks[taskIndex];
-
-        sendProgress(
-          'extracting',
-          `Mengekstrak artikel ${taskIndex + 1}/${filteredTotalItems}: ${task.title.substring(0, 60)}...`,
-          ++completedCount,
-          filteredTotalItems
-        );
-
-        console.log(`[MAIN] ── Article ${taskIndex + 1}/${filteredTotalItems} [Worker ${workerId}] ──`);
-        console.log(`[MAIN] Title: ${task.title}`);
-
-        // Decode Google News URL to get the real source URL
-        let targetUrl = task.articleUrl;
-        if (targetUrl.includes('news.google.com')) {
-          try {
-            const decodeResult = await googleNewsDecoder.decodeGoogleNewsUrl(targetUrl);
-            if (decodeResult && decodeResult.status && decodeResult.decodedUrl) {
-              targetUrl = decodeResult.decodedUrl;
-              console.log(`[MAIN] Decoded Google News URL: ${targetUrl}`);
-            }
-          } catch (decodeErr) {
-            console.error(`[MAIN] Failed to decode URL: ${decodeErr.message}`);
-          }
-        }
-
-        // Pengecualian wajib: Abaikan website resmi DKPP RI SETELAH di-decode
-        if (targetUrl.toLowerCase().includes('dkpp.go.id')) {
-          console.log(`[MAIN] Skipped official dkpp site after decode: ${targetUrl}`);
-          continue;
-        }
-
-        const cleanText = await extractWithRetry(targetUrl, hiddenWindow, params.timeout || 25000);
-        const formattedDate = formatDate(task.item.pubDate || task.item.isoDate);
-
-        const article = {
-          index: task.index,
-          title: task.title,
-          source: task.source,
-          link: targetUrl,
-          date: formattedDate,
-          rawDate: task.item.pubDate || task.item.isoDate || '',
-          cleanText: cleanText || '[Gagal mengekstrak teks artikel]',
-          hasText: !!cleanText
-        };
-
-        articles.push(article);
-
-        // Rate limiting antar request per worker
-        if (taskCursor < tasks.length) {
-          await new Promise(resolve => setTimeout(resolve, params.requestDelay || 500));
-        }
-      }
-    }
-
-    // Jalankan semua worker secara paralel
-    const workerPromises = hiddenWindows.map((win, i) => worker(win, i + 1));
-    await Promise.all(workerPromises);
-
-    // Urutkan kembali artikel berdasarkan index asli
-    articles.sort((a, b) => a.index - b.index);
-
-    // Cleanup semua hidden windows
-    destroyHiddenWindows(hiddenWindows);
+    `    const proxyListRaw = params.proxyList || ''
 
     // ── Step 3: Return Results ──
     const successCount = articles.filter(a => a.hasText).length;
