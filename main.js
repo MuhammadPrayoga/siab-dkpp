@@ -511,7 +511,7 @@ ipcMain.handle('start-crawl', async (event, params) => {
     }
 
     // Buat pool hidden windows untuk crawling paralel
-    `    const proxyListRaw = params.proxyList || ''
+    const proxyListRaw = params.proxyList || ''
 
     // ── Step 3: Return Results ──
     const successCount = articles.filter(a => a.hasText).length;
